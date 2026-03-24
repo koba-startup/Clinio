@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get_it/get_it.dart';
 import 'package:internet_connection_checker_plus/internet_connection_checker_plus.dart';
@@ -10,6 +11,9 @@ import 'features/auth/domain/use_cases/login_usecase.dart';
 import 'features/auth/domain/use_cases/logout_usecase.dart';
 import 'features/auth/domain/use_cases/signup_usecase.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
+import 'features/patients/data/datasource/patient_remote_data_source.dart';
+import 'features/patients/data/repositories/patient_repository_impl.dart';
+import 'features/patients/domain/repositories/patient_repository.dart';
 import 'features/patients/domain/use_cases/add_patient_usecase.dart';
 import 'features/patients/domain/use_cases/delete_patient_usecase.dart';
 import 'features/patients/domain/use_cases/get_patients_usecase.dart';
@@ -44,8 +48,13 @@ Future<void> init() async {
   //! Features ---------- Patients -----------------
 
   // Repository
+  sl.registerLazySingleton<PatientRepository>(() => PatientRepositoryImpl(
+    remoteDataSource: sl(),
+    networkInfo: sl(),
+  ));
 
   // Data sources
+  sl.registerLazySingleton<PatientRemoteDataSource>(() => PatientRemoteDataSourceImpl(sl()));
 
   // Use cases
   sl.registerLazySingleton(() => GetPatientsUseCase(sl()));
@@ -59,4 +68,5 @@ Future<void> init() async {
   //! External
   sl.registerLazySingleton(() => FirebaseAuth.instance);
   sl.registerLazySingleton(() => InternetConnection());
+  sl.registerLazySingleton(() => FirebaseFirestore.instance);
 }
