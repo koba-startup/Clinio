@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
+import 'package:go_router/go_router.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 
 class AppointmentsPage extends StatelessWidget {
@@ -12,30 +12,36 @@ class AppointmentsPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Agenda Clinio'),
         actions: [
-          // Botón provisional de Logout en la barra superior
           IconButton(
-            icon: const Icon(Icons.logout, color: Colors.redAccent),
-            onPressed: () {
-              // Disparamos el evento de Logout
-              context.read<AuthBloc>().add(AuthLogoutRequested());
-            },
-            tooltip: 'Cerrar Sesión',
+            icon: const Icon(Icons.logout),
+            onPressed: () =>
+                context.read<AuthBloc>().add(AuthLogoutRequested()),
           ),
         ],
       ),
-      body: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+
+      drawer: Drawer(
+        child: ListView(
           children: [
-            Icon(Icons.calendar_month, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
-            Text(
-              'Próximamente: Tu Calendario de Citas',
-              style: TextStyle(fontSize: 18, color: Colors.grey),
+            const DrawerHeader(
+              decoration: BoxDecoration(color: Colors.blue),
+              child: Text(
+                'Clinio Menu',
+                style: TextStyle(color: Colors.white, fontSize: 24),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.people),
+              title: const Text('Pacientes'),
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/patients');
+              },
             ),
           ],
         ),
       ),
+      body: const Center(child: Text('Calendario Próximamente')),
     );
   }
 }
