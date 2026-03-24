@@ -10,11 +10,15 @@ import 'features/auth/domain/use_cases/login_usecase.dart';
 import 'features/auth/domain/use_cases/logout_usecase.dart';
 import 'features/auth/domain/use_cases/signup_usecase.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
+import 'features/patients/domain/use_cases/add_patient_usecase.dart';
+import 'features/patients/domain/use_cases/delete_patient_usecase.dart';
+import 'features/patients/domain/use_cases/get_patients_usecase.dart';
+import 'features/patients/domain/use_cases/update_patient_usecase.dart';
 
 final sl = GetIt.instance;
 
 Future<void> init() async {
-  //! Features - Auth
+  //! Features ---------- Auth -----------------
 
   sl.registerFactory(() => AuthBloc(
     loginUseCase: sl(),
@@ -36,6 +40,18 @@ Future<void> init() async {
   sl.registerLazySingleton(() => SignUpUseCase(sl()));
   sl.registerLazySingleton(() => LogoutUseCase(sl()));
   sl.registerLazySingleton(() => GetAuthStatusUseCase(sl()));
+
+  //! Features ---------- Patients -----------------
+
+  // Repository
+
+  // Data sources
+
+  // Use cases
+  sl.registerLazySingleton(() => GetPatientsUseCase(sl()));
+  sl.registerLazySingleton(() => AddPatientUseCase(sl()));
+  sl.registerLazySingleton(() => UpdatePatientUseCase(sl()));
+  sl.registerLazySingleton(() => DeletePatientUseCase(sl()));
 
   //! Core
   sl.registerLazySingleton<NetworkInfo>(() => NetworkInfoImpl(sl()));
