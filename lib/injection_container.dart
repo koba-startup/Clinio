@@ -18,6 +18,7 @@ import 'features/patients/domain/use_cases/add_patient_usecase.dart';
 import 'features/patients/domain/use_cases/delete_patient_usecase.dart';
 import 'features/patients/domain/use_cases/get_patients_usecase.dart';
 import 'features/patients/domain/use_cases/update_patient_usecase.dart';
+import 'features/patients/presentation/bloc/patient_bloc.dart';
 
 final sl = GetIt.instance;
 
@@ -46,7 +47,12 @@ Future<void> init() async {
   sl.registerLazySingleton(() => GetAuthStatusUseCase(sl()));
 
   //! Features ---------- Patients -----------------
-
+  sl.registerFactory(() => PatientBloc(
+    getPatientsUseCase: sl(),
+    addPatientUseCase: sl(),
+    updatePatientUseCase: sl(),
+    deletePatientUseCase: sl(),
+  ));
   // Repository
   sl.registerLazySingleton<PatientRepository>(() => PatientRepositoryImpl(
     remoteDataSource: sl(),
