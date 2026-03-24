@@ -14,6 +14,11 @@ dependencies:
   equatable: ^2.0.8
   dartz: ^0.10.1
 
+  # --- Firebase Core ---
+  firebase_core: ^4.6.0
+  cloud_firestore: ^6.2.0
+  firebase_auth: ^6.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

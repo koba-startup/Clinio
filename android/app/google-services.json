@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "133046827119",
+    "project_id": "clinio-6f2e2",
+    "storage_bucket": "clinio-6f2e2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:133046827119:android:0b39b91099504cfcbb759a",
+        "android_client_info": {
+          "package_name": "com.koba.clinio"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA4KtqodjLdznS31F4OZEKDqx2_EWsjA2s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
