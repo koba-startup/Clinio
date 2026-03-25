@@ -18,6 +18,7 @@ dependencies:
   get_it: ^9.2.1
   bloc: ^9.2.0
   flutter_bloc: ^9.1.1
+  syncfusion_flutter_calendar: ^33.1.45
 
   # --- Firebase Core ---
   firebase_core: ^4.6.0
