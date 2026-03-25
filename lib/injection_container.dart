@@ -3,6 +3,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get_it/get_it.dart';
 import 'package:internet_connection_checker_plus/internet_connection_checker_plus.dart';
 import 'core/network/network_info.dart';
+import 'features/appointments/domain/use_cases/add_appointment_usecase.dart';
+import 'features/appointments/domain/use_cases/delete_appointments_usecase.dart';
+import 'features/appointments/domain/use_cases/get_appointments_usecase.dart';
+import 'features/appointments/domain/use_cases/update_appointments_usecase.dart';
 import 'features/auth/data/datasource/auth_remote_data_source.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/auth/domain/repositories/auth_repository.dart';
@@ -67,6 +71,20 @@ Future<void> init() async {
   sl.registerLazySingleton(() => AddPatientUseCase(sl()));
   sl.registerLazySingleton(() => UpdatePatientUseCase(sl()));
   sl.registerLazySingleton(() => DeletePatientUseCase(sl()));
+
+
+  //! Features ---------- Appointments -----------------
+
+  // Repository
+
+  // Data sources
+
+
+  // Use cases
+  sl.registerLazySingleton(() => GetAppointmentsUseCase(sl()));
+  sl.registerLazySingleton(() => AddAppointmentUseCase(sl()));
+  sl.registerLazySingleton(() => UpdateAppointmentUseCase(sl()));
+  sl.registerLazySingleton(() => DeleteAppointmentUseCase(sl()));
 
   //! Core
   sl.registerLazySingleton<NetworkInfo>(() => NetworkInfoImpl(sl()));
