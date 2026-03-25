@@ -10,6 +10,7 @@ import 'features/appointments/domain/use_cases/add_appointment_usecase.dart';
 import 'features/appointments/domain/use_cases/delete_appointments_usecase.dart';
 import 'features/appointments/domain/use_cases/get_appointments_usecase.dart';
 import 'features/appointments/domain/use_cases/update_appointments_usecase.dart';
+import 'features/appointments/presentation/bloc/appointment_bloc.dart';
 import 'features/auth/data/datasource/auth_remote_data_source.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/auth/domain/repositories/auth_repository.dart';
@@ -82,6 +83,12 @@ Future<void> init() async {
 
   //! Features ---------- Appointments -----------------
 
+  sl.registerFactory(() => AppointmentBloc(
+    getAppointmentsUseCase: sl(),
+    addAppointmentUseCase: sl(),
+    updateAppointmentUseCase: sl(),
+    deleteAppointmentUseCase: sl(),
+  ));
   // Repository
   sl.registerLazySingleton<AppointmentRepository>(
     () => AppointmentRepositoryImpl(remoteDataSource: sl(), networkInfo: sl()),
