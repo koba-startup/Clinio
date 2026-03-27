@@ -1,5 +1,6 @@
 import 'package:dartz/dartz.dart';
 
+import '../../../../core/entities/patient_entity.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/network/network_info.dart';
 import '../../domain/repositories/patient_repository.dart';
@@ -13,12 +14,12 @@ class PatientRepositoryImpl implements PatientRepository {
   PatientRepositoryImpl({required this.remoteDataSource, required this.networkInfo});
 
   @override
-  Stream<List<PatientModel>> getPatients(String dentistId) {
+  Stream<List<PatientEntity>> getPatients(String dentistId) {
     return remoteDataSource.getPatients(dentistId);
   }
 
   @override
-  Future<Either<Failure, void>> addPatient(dynamic patient, String dentistId) async {
+  Future<Either<Failure, void>> addPatient(PatientEntity patient, String dentistId) async {
     if (await networkInfo.isConnected) {
       try {
         // Mapeamos la entidad a modelo para poder enviarla a Firestore
@@ -39,7 +40,6 @@ class PatientRepositoryImpl implements PatientRepository {
     }
   }
 
-  // Nota: Deberás implementar update y delete con una lógica similar
   @override
   Future<Either<Failure, void>> updatePatient(dynamic patient, String dentistId) async { /* ... */ return const Right(null); }
   @override
