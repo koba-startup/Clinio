@@ -5,26 +5,37 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/entities/patient_entity.dart';
 import '../bloc/patient_bloc.dart';
 
-class AddPatientModal extends StatefulWidget {
+class EditPatientModal extends StatefulWidget {
+  final PatientEntity patient;
   final String dentistId;
   final Function(PatientEntity) onSave;
 
-  const AddPatientModal({
+  const EditPatientModal({
     super.key,
+    required this.patient,
     required this.dentistId,
     required this.onSave,
   });
 
   @override
-  State<AddPatientModal> createState() => _AddPatientModalState();
+  State<EditPatientModal> createState() => _EditPatientModalState();
 }
 
-class _AddPatientModalState extends State<AddPatientModal> {
+class _EditPatientModalState extends State<EditPatientModal> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _emailController = TextEditingController();
+  late final TextEditingController _nameController;
+  late final TextEditingController _phoneController;
+  late final TextEditingController _emailController;
   bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-llenamos con los datos actuales del paciente
+    _nameController = TextEditingController(text: widget.patient.name);
+    _phoneController = TextEditingController(text: widget.patient.phone);
+    _emailController = TextEditingController(text: widget.patient.email ?? '');
+  }
 
   @override
   void dispose() {
@@ -34,16 +45,10 @@ class _AddPatientModalState extends State<AddPatientModal> {
     super.dispose();
   }
 
-  // Normaliza el teléfono a formato internacional +52XXXXXXXXXX
-  // requerido para la WhatsApp API
   String _normalizePhone(String phone) {
-    // Elimina espacios, guiones y paréntesis
     String cleaned = phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
-    // Si ya tiene +52, lo dejamos
     if (cleaned.startsWith('+52')) return cleaned;
-    // Si empieza con 52 (sin +), agregamos el +
     if (cleaned.startsWith('52') && cleaned.length == 12) return '+$cleaned';
-    // Si es un número de 10 dígitos, agregamos +52
     if (cleaned.length == 10) return '+52$cleaned';
     return cleaned;
   }
@@ -51,7 +56,6 @@ class _AddPatientModalState extends State<AddPatientModal> {
   String? _validatePhone(String? value) {
     if (value == null || value.isEmpty) return 'El teléfono es requerido';
     final cleaned = value.replaceAll(RegExp(r'[\s\-\(\)\+]'), '');
-    // Acepta 10 dígitos mexicanos o 12 con código de país (52XXXXXXXXXX)
     if (!RegExp(r'^\d{10}$').hasMatch(cleaned) &&
         !RegExp(r'^52\d{10}$').hasMatch(cleaned)) {
       return 'Ingresa un número válido de 10 dígitos';
@@ -62,18 +66,18 @@ class _AddPatientModalState extends State<AddPatientModal> {
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
 
-    final patient = PatientEntity(
-      id: '',
+    final updated = PatientEntity(
+      id: widget.patient.id,
       name: _nameController.text.trim(),
       phone: _normalizePhone(_phoneController.text.trim()),
       email: _emailController.text.trim().isEmpty
           ? null
           : _emailController.text.trim(),
-      createdAt: DateTime.now(),
+      createdAt: widget.patient.createdAt,
     );
 
     setState(() => _isSaving = true);
-    widget.onSave(patient);
+    widget.onSave(updated);
   }
 
   @override
@@ -82,12 +86,6 @@ class _AddPatientModalState extends State<AddPatientModal> {
       listener: (context, state) {
         if (state is PatientOperationSuccess) {
           Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Paciente guardado correctamente'),
-              backgroundColor: Colors.green,
-            ),
-          );
         } else if (state is PatientError) {
           setState(() => _isSaving = false);
           ScaffoldMessenger.of(context).showSnackBar(
@@ -108,7 +106,6 @@ class _AddPatientModalState extends State<AddPatientModal> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Handle bar visual
               Center(
                 child: Container(
                   width: 40,
@@ -121,13 +118,12 @@ class _AddPatientModalState extends State<AddPatientModal> {
                 ),
               ),
               const Text(
-                'Nuevo Paciente',
+                'Editar Paciente',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 20),
 
-              // Nombre
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(
@@ -141,13 +137,12 @@ class _AddPatientModalState extends State<AddPatientModal> {
               ),
               const SizedBox(height: 12),
 
-              // Teléfono - crítico para WhatsApp
               TextFormField(
                 controller: _phoneController,
                 decoration: const InputDecoration(
                   labelText: 'Teléfono (WhatsApp)',
                   prefixIcon: Icon(Icons.phone_outlined),
-                  helperText: 'Ej: 5512345678 — se usará para recordatorios',
+                  helperText: 'Ej: 5512345678',
                 ),
                 keyboardType: TextInputType.phone,
                 inputFormatters: [
@@ -157,7 +152,6 @@ class _AddPatientModalState extends State<AddPatientModal> {
               ),
               const SizedBox(height: 12),
 
-              // Email - opcional
               TextFormField(
                 controller: _emailController,
                 decoration: const InputDecoration(
@@ -175,7 +169,6 @@ class _AddPatientModalState extends State<AddPatientModal> {
               ),
               const SizedBox(height: 24),
 
-              // Botón guardar
               ElevatedButton(
                 onPressed: _isSaving ? null : _submit,
                 child: _isSaving
@@ -187,7 +180,7 @@ class _AddPatientModalState extends State<AddPatientModal> {
                           color: Colors.white,
                         ),
                       )
-                    : const Text('Guardar Paciente'),
+                    : const Text('Guardar cambios'),
               ),
               const SizedBox(height: 16),
             ],

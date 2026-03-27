@@ -29,4 +29,24 @@ class PatientModel extends PatientEntity {
       'createdAt': createdAt ?? FieldValue.serverTimestamp(),
     };
   }
+
+  factory PatientModel.fromEntity(PatientEntity entity) {
+    return PatientModel(
+      id: entity.id,
+      name: entity.name,
+      phone: entity.phone,
+      email: entity.email,
+      createdAt: entity.createdAt,
+    );
+  }
+
+  PatientEntity toEntity() {
+    return PatientEntity(
+      id: id,
+      name: name,
+      phone: phone,
+      email: email,
+      createdAt: createdAt,
+    );
+  }
 }
