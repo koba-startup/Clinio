@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/entities/patient_entity.dart';
 import '../../../../injection_container.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../bloc/patient_bloc.dart';
-import '../widgets/add_patient_modal.dart';
 import '../widgets/edit_patient_model.dart';
 
 class PatientsPage extends StatelessWidget {
@@ -80,12 +80,12 @@ class _PatientsView extends StatelessWidget {
 
           if (state is PatientLoaded) {
             if (state.patients.isEmpty) {
-              return _EmptyState(onAdd: () => _showAddModal(context));
+              return _EmptyState(onAdd: () => context.push('/addPatients'));
             }
             return ListView.separated(
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: state.patients.length,
-              separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
+              separatorBuilder: (_, _) => const Divider(height: 1, indent: 72),
               itemBuilder: (context, index) {
                 final patient = state.patients[index];
                 return _PatientTile(
@@ -102,28 +102,8 @@ class _PatientsView extends StatelessWidget {
       ),
       floatingActionButton: Builder(
         builder: (context) => FloatingActionButton(
-          onPressed: () => _showAddModal(context),
+          onPressed: () => context.push('/addPatients'),
           child: const Icon(Icons.person_add),
-        ),
-      ),
-    );
-  }
-
-  void _showAddModal(BuildContext context) {
-    final patientBloc = context.read<PatientBloc>();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (modalContext) => BlocProvider.value(
-        value: patientBloc,
-        child: AddPatientModal(
-          dentistId: dentistId,
-          onSave: (newPatient) {
-            patientBloc.add(AddPatientRequested(newPatient, dentistId));
-          },
         ),
       ),
     );

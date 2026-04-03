@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:get_it/get_it.dart';
 import 'package:internet_connection_checker_plus/internet_connection_checker_plus.dart';
 import 'core/network/network_info.dart';
@@ -72,7 +73,7 @@ Future<void> init() async {
 
   // Data sources
   sl.registerLazySingleton<PatientRemoteDataSource>(
-    () => PatientRemoteDataSourceImpl(sl()),
+    () => PatientRemoteDataSourceImpl(sl(),sl()),
   );
 
   // Use cases
@@ -111,4 +112,5 @@ Future<void> init() async {
   sl.registerLazySingleton(() => FirebaseAuth.instance);
   sl.registerLazySingleton(() => InternetConnection());
   sl.registerLazySingleton(() => FirebaseFirestore.instance);
+  sl.registerLazySingleton(() => FirebaseStorage.instance);
 }

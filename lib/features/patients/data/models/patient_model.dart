@@ -7,6 +7,8 @@ class PatientModel extends PatientEntity {
     required super.name,
     required super.phone,
     super.email,
+    super.photoUrl,
+    super.observations,
     super.createdAt,
   });
 
@@ -17,6 +19,8 @@ class PatientModel extends PatientEntity {
       name: data['name'] ?? '',
       phone: data['phone'] ?? '',
       email: data['email'],
+      photoUrl: data['photoUrl'],
+      observations: data['observations'],
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
     );
   }
@@ -26,6 +30,8 @@ class PatientModel extends PatientEntity {
       'name': name,
       'phone': phone,
       'email': email,
+      'photoUrl': photoUrl,
+      'observations': observations,
       'createdAt': createdAt ?? FieldValue.serverTimestamp(),
     };
   }
@@ -36,6 +42,8 @@ class PatientModel extends PatientEntity {
       name: entity.name,
       phone: entity.phone,
       email: entity.email,
+      photoUrl: entity.photoUrl,
+      observations: entity.observations,
       createdAt: entity.createdAt,
     );
   }
@@ -46,6 +54,8 @@ class PatientModel extends PatientEntity {
       name: name,
       phone: phone,
       email: email,
+      photoUrl: photoUrl,
+      observations: observations,
       createdAt: createdAt,
     );
   }

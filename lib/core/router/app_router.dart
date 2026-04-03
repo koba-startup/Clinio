@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:clinio/features/patients/presentation/pages/add_patients_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -12,6 +13,7 @@ class AppRouter {
   static const String login = '/login';
   static const String appointments = '/';
   static const String patients = '/patients';
+  static const String addPatients = '/addPatients';
 
   static final router = GoRouter(
     initialLocation: login,
@@ -41,6 +43,10 @@ class AppRouter {
       GoRoute(
         path: patients,
         builder: (context, state) => const PatientsPage(),
+      ),
+      GoRoute(
+        path: addPatients,
+        builder: (context, state) => const AddPatientsPage(),
       ),
     ],
   );

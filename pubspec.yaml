@@ -19,11 +19,14 @@ dependencies:
   bloc: ^9.2.0
   flutter_bloc: ^9.1.1
   syncfusion_flutter_calendar: ^33.1.45
+  image_picker: ^1.2.1
+  flutter_image_compress: ^2.4.0
 
   # --- Firebase Core ---
   firebase_core: ^4.6.0
   cloud_firestore: ^6.2.0
   firebase_auth: ^6.3.0
+  firebase_storage: ^13.2.0
 
 dev_dependencies:
   flutter_test:
