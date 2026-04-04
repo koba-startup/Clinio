@@ -3,8 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/entities/patient_entity.dart';
 import '../bloc/patient_bloc.dart';
-import '../widgets/edit_patient_modal.dart';
-import '../pages/patients_page.dart'; // Para reutilizar PatientAvatar
+import '../pages/patients_page.dart'; // PatientAvatar
 
 class DetailPatientPage extends StatelessWidget {
   final PatientEntity patient;
@@ -36,7 +35,7 @@ class DetailPatientPage extends StatelessWidget {
             context.pop();
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Operación realizada con éxito'),
+                content: Text('Paciente eliminado'),
                 backgroundColor: Colors.green,
               ),
             );
@@ -56,7 +55,7 @@ class DetailPatientPage extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.edit_outlined),
                 tooltip: 'Editar',
-                onPressed: () => _showEditModal(context),
+                onPressed: () => _goToEdit(context),
               ),
               IconButton(
                 icon: const Icon(Icons.delete_outline, color: Colors.red),
@@ -102,7 +101,7 @@ class DetailPatientPage extends StatelessWidget {
                               icon: Icons.calendar_today_outlined,
                               label: 'Registrado',
                               value:
-                              '${patient.createdAt!.day}/${patient.createdAt!.month}/${patient.createdAt!.year}',
+                                  '${patient.createdAt!.day}/${patient.createdAt!.month}/${patient.createdAt!.year}',
                             ),
                           ],
                         ],
@@ -138,7 +137,7 @@ class DetailPatientPage extends StatelessWidget {
                             child: OutlinedButton.icon(
                               icon: const Icon(Icons.edit_outlined),
                               label: const Text('Editar'),
-                              onPressed: () => _showEditModal(context),
+                              onPressed: () => _goToEdit(context),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -172,23 +171,10 @@ class DetailPatientPage extends StatelessWidget {
     );
   }
 
-  void _showEditModal(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (modalContext) => BlocProvider.value(
-        value: patientBloc,
-        child: EditPatientModal(
-          patient: patient,
-          dentistId: dentistId,
-          onSave: (updated) {
-            patientBloc.add(UpdatePatientRequested(updated, dentistId));
-          },
-        ),
-      ),
+  void _goToEdit(BuildContext context) {
+    context.push(
+      '/patients/edit',
+      extra: {'patient': patient, 'bloc': patientBloc, 'dentistId': dentistId},
     );
   }
 
@@ -199,7 +185,7 @@ class DetailPatientPage extends StatelessWidget {
         title: const Text('Eliminar paciente'),
         content: Text(
           '¿Estás seguro de que deseas eliminar a ${patient.name}? '
-              'Esta acción no se puede deshacer.',
+          'Esta acción no se puede deshacer.',
         ),
         actions: [
           TextButton(
@@ -246,19 +232,13 @@ class _PatientHeader extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             patient.name,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           if (patient.email != null && patient.email!.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
               patient.email!,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade600,
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
             ),
           ],
         ],
@@ -267,41 +247,37 @@ class _PatientHeader extends StatelessWidget {
   }
 }
 
-// ── Componentes de UI ─────────────────────────────────────────────────────────
-
 class _SectionTitle extends StatelessWidget {
   final String text;
+
   const _SectionTitle(this.text);
 
   @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-        color: Colors.grey.shade500,
-        letterSpacing: 0.5,
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Text(
+    text,
+    style: TextStyle(
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+      color: Colors.grey.shade500,
+      letterSpacing: 0.5,
+    ),
+  );
 }
 
 class _InfoCard extends StatelessWidget {
   final List<Widget> children;
+
   const _InfoCard({required this.children});
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(children: children),
-    );
-  }
+  Widget build(BuildContext context) => Container(
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.surface,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: Colors.grey.shade200),
+    ),
+    child: Column(children: children),
+  );
 }
 
 class _InfoRow extends StatelessWidget {
@@ -316,26 +292,24 @@ class _InfoRow extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: Colors.grey.shade500),
-          const SizedBox(width: 14),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-              ),
-              const SizedBox(height: 2),
-              Text(value, style: const TextStyle(fontSize: 15)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    child: Row(
+      children: [
+        Icon(icon, size: 20, color: Colors.grey.shade500),
+        const SizedBox(width: 14),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+            ),
+            const SizedBox(height: 2),
+            Text(value, style: const TextStyle(fontSize: 15)),
+          ],
+        ),
+      ],
+    ),
+  );
 }

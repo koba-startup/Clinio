@@ -17,7 +17,6 @@ class PatientRepositoryImpl implements PatientRepository {
     required this.networkInfo,
   });
 
-  // Mapea el Stream de Models a Entities para respetar la Clean Architecture
   @override
   Stream<List<PatientEntity>> getPatients(String dentistId) {
     return remoteDataSource
@@ -34,32 +33,32 @@ class PatientRepositoryImpl implements PatientRepository {
       return const Left(ServerFailure('Sin conexión a internet'));
     }
     try {
-      String? finalPhotoUrl;
+      // 1. Generar el ID de Firestore ANTES de subir la foto
+      //    Así Storage y Firestore siempre usan la misma ruta
+      final patientId = remoteDataSource.generatePatientId(dentistId);
 
-      // 1. Si hay una foto local (path), la procesamos y subimos primero
-      if (patient.photoUrl != null && patient.photoUrl!.isNotEmpty) {
-        final file = File(patient.photoUrl!);
-        if (await file.exists()) {
-          // El DataSource se encarga de la compresión WebP y redimensión
-          finalPhotoUrl = await remoteDataSource.uploadPatientPhoto(
-            file,
-            dentistId,
-            // Generamos un ID temporal o dejamos que Firestore lo maneje más adelante
-            DateTime.now().millisecondsSinceEpoch.toString(),
-          );
-        }
+      String? finalPhotoUrl;
+      if (patient.photoUrl != null && patient.photoUrl!.startsWith('/')) {
+        // 2. Subir foto con el ID ya conocido
+        finalPhotoUrl = await remoteDataSource.uploadPatientPhoto(
+          File(patient.photoUrl!),
+          dentistId,
+          patientId, // ID real, no timestamp temporal
+        );
       }
 
-      // 2. Creamos el modelo con la URL final (de internet) en lugar del path local
-      final model = PatientModel(
-        id: patient.id,
-        name: patient.name,
-        phone: patient.phone,
-        email: patient.email,
-        observations: patient.observations,
-        photoUrl: finalPhotoUrl,
-        // Aquí ya va la URL de Firebase Storage
-        createdAt: patient.createdAt,
+      // 3. Guardar documento con ese mismo ID
+      final model = PatientModel.fromEntity(
+        PatientEntity(
+          id: patientId,
+          // ID pre-generado
+          name: patient.name,
+          phone: patient.phone,
+          email: patient.email,
+          observations: patient.observations,
+          photoUrl: finalPhotoUrl,
+          createdAt: patient.createdAt,
+        ),
       );
 
       await remoteDataSource.addPatient(model, dentistId);
@@ -77,27 +76,33 @@ class PatientRepositoryImpl implements PatientRepository {
     if (!await networkInfo.isConnected) {
       return const Left(ServerFailure('Sin conexión a internet'));
     }
-
     try {
-      String? updatedPhotoUrl = patient.photoUrl;
+      String? finalPhotoUrl = patient.photoUrl;
 
-      // Si el photoUrl es un path local (comienza con /data o /Users), significa que es nueva
+      // Path local = foto nueva → subir y sobrescribir la anterior
       if (patient.photoUrl != null && patient.photoUrl!.startsWith('/')) {
-        updatedPhotoUrl = await remoteDataSource.uploadPatientPhoto(
+        finalPhotoUrl = await remoteDataSource.uploadPatientPhoto(
           File(patient.photoUrl!),
           dentistId,
-          patient.id,
+          patient.id, // ID real del paciente
         );
       }
 
-      final model = PatientModel(
-        id: patient.id,
-        name: patient.name,
-        phone: patient.phone,
-        email: patient.email,
-        observations: patient.observations,
-        photoUrl: updatedPhotoUrl,
-        createdAt: patient.createdAt,
+      // null explícito = usuario quitó la foto → eliminar de Storage
+      if (patient.photoUrl == null) {
+        await remoteDataSource.deletePatientPhoto(dentistId, patient.id);
+      }
+
+      final model = PatientModel.fromEntity(
+        PatientEntity(
+          id: patient.id,
+          name: patient.name,
+          phone: patient.phone,
+          email: patient.email,
+          observations: patient.observations,
+          photoUrl: finalPhotoUrl,
+          createdAt: patient.createdAt,
+        ),
       );
 
       await remoteDataSource.updatePatient(model, dentistId);
@@ -116,6 +121,7 @@ class PatientRepositoryImpl implements PatientRepository {
       return const Left(ServerFailure('Sin conexión a internet'));
     }
     try {
+      // deletePatient en datasource elimina foto + documento
       await remoteDataSource.deletePatient(patientId, dentistId);
       return const Right(null);
     } catch (e) {

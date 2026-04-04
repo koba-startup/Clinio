@@ -2,21 +2,23 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import '../../features/appointments/presentation/pages/appointments_page.dart';
-import '../../features/auth/presentation/bloc/auth_bloc.dart';
-import '../../features/auth/presentation/pages/login_page.dart';
-import '../../features/patients/presentation/bloc/patient_bloc.dart';
-import '../../features/patients/presentation/pages/add_patients_page.dart';
-import '../../features/patients/presentation/pages/detail_patient_page.dart';
-import '../../features/patients/presentation/pages/patients_page.dart';
-import '../../injection_container.dart';
-import '../../../../core/entities/patient_entity.dart';
+import 'package:clinio/features/appointments/presentation/pages/appointments_page.dart';
+import 'package:clinio/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:clinio/features/auth/presentation/pages/login_page.dart';
+import 'package:clinio/features/patients/presentation/bloc/patient_bloc.dart';
+import 'package:clinio/features/patients/presentation/pages/add_patients_page.dart';
+import 'package:clinio/features/patients/presentation/pages/detail_patient_page.dart';
+import 'package:clinio/features/patients/presentation/pages/patients_page.dart';
+import 'package:clinio/injection_container.dart';
+import 'package:clinio/core/entities/patient_entity.dart';
+import 'package:clinio/features/patients/presentation/pages/edit_patients_page.dart';
 
 class AppRouter {
   static const String login = '/login';
   static const String appointments = '/';
   static const String patients = '/patients';
   static const String patientDetail = '/patients/detail';
+  static const String patientEdit = '/patients/edit';
   static const String addPatients = '/addPatients';
 
   static final router = GoRouter(
@@ -57,9 +59,17 @@ class AppRouter {
         },
       ),
       GoRoute(
-        path: addPatients,
-        builder: (context, state) => const AddPatientsPage(),
+        path: patientEdit,
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>;
+          return EditPatientPage(
+            patient: extra['patient'] as PatientEntity,
+            patientBloc: extra['bloc'] as PatientBloc,
+            dentistId: extra['dentistId'] as String,
+          );
+        },
       ),
+      GoRoute(path: addPatients, builder: (_, __) => const AddPatientsPage()),
     ],
   );
 }

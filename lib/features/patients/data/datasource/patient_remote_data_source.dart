@@ -20,6 +20,11 @@ abstract class PatientRemoteDataSource {
     String dentistId,
     String patientId,
   );
+
+  Future<void> deletePatientPhoto(String dentistId, String patientId);
+
+  // Genera un ID de Firestore antes de guardar — clave para sincronizar con Storage
+  String generatePatientId(String dentistId);
 }
 
 class PatientRemoteDataSourceImpl implements PatientRemoteDataSource {
@@ -30,6 +35,13 @@ class PatientRemoteDataSourceImpl implements PatientRemoteDataSource {
 
   CollectionReference _patientCol(String uid) =>
       firestore.collection('users').doc(uid).collection('patients');
+
+  Reference _photoRef(String dentistId, String patientId) =>
+      storage.ref().child('users/$dentistId/patients/$patientId/profile.webp');
+
+  // Genera el ID que Firestore usará — permite usarlo en Storage ANTES de guardar
+  @override
+  String generatePatientId(String dentistId) => _patientCol(dentistId).doc().id;
 
   @override
   Stream<List<PatientModel>> getPatients(String dentistId) {
@@ -45,7 +57,9 @@ class PatientRemoteDataSourceImpl implements PatientRemoteDataSource {
 
   @override
   Future<void> addPatient(PatientModel patient, String dentistId) async {
-    await _patientCol(dentistId).add(patient.toFirestore());
+    // set() con ID explícito en lugar de add() con ID auto-generado
+    // Así el ID del documento siempre coincide con el path de la foto en Storage
+    await _patientCol(dentistId).doc(patient.id).set(patient.toFirestore());
   }
 
   @override
@@ -55,6 +69,7 @@ class PatientRemoteDataSourceImpl implements PatientRemoteDataSource {
 
   @override
   Future<void> deletePatient(String patientId, String dentistId) async {
+    await deletePatientPhoto(dentistId, patientId);
     await _patientCol(dentistId).doc(patientId).delete();
   }
 
@@ -64,38 +79,34 @@ class PatientRemoteDataSourceImpl implements PatientRemoteDataSource {
     String dentistId,
     String patientId,
   ) async {
+    final Uint8List? compressed = await FlutterImageCompress.compressWithFile(
+      imageFile.absolute.path,
+      minWidth: 800,
+      minHeight: 800,
+      quality: 80,
+      format: CompressFormat.webp,
+    );
+
+    if (compressed == null) throw Exception('No se pudo comprimir la imagen');
+
+    final uploadTask = await _photoRef(
+      dentistId,
+      patientId,
+    ).putData(compressed, SettableMetadata(contentType: 'image/webp'));
+
+    return await uploadTask.ref.getDownloadURL();
+  }
+
+  @override
+  Future<void> deletePatientPhoto(String dentistId, String patientId) async {
     try {
-      // 1. Comprimir a WebP con código nativo — rápido, sin bloquear UI
-      //    minWidth/minHeight: la imagen no saldrá más pequeña que esto
-      //    quality 80: buen balance tamaño/calidad para fotos de perfil
-      //    WebP nativo es ~25-35% más liviano que JPEG a calidad equivalente
-      final Uint8List? compressedBytes =
-          await FlutterImageCompress.compressWithFile(
-            imageFile.absolute.path,
-            minWidth: 800,
-            minHeight: 800,
-            quality: 80,
-            format: CompressFormat.webp,
-          );
-
-      if (compressedBytes == null) {
-        throw Exception('No se pudo comprimir la imagen');
+      await _photoRef(dentistId, patientId).delete();
+    } on FirebaseException catch (e) {
+      // object-not-found = el paciente nunca tuvo foto, no es error real
+      if (e.code != 'object-not-found') {
+        // Cualquier otro error (permisos, red) sí debe propagarse
+        rethrow;
       }
-
-      // 2. Subir a Firebase Storage
-      final storageRef = storage.ref().child(
-        'users/$dentistId/patients/$patientId/profile.webp',
-      );
-
-      final uploadTask = await storageRef.putData(
-        compressedBytes,
-        SettableMetadata(contentType: 'image/webp'),
-      );
-
-      // 3. Retornar la URL pública permanente
-      return await uploadTask.ref.getDownloadURL();
-    } catch (e) {
-      throw Exception('Error al procesar/subir imagen: $e');
     }
   }
 }
