@@ -21,6 +21,7 @@ dependencies:
   syncfusion_flutter_calendar: ^33.1.45
   image_picker: ^1.2.1
   flutter_image_compress: ^2.4.0
+  cached_network_image: ^3.4.1
 
   # --- Firebase Core ---
   firebase_core: ^4.6.0

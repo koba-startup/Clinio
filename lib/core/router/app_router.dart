@@ -1,18 +1,22 @@
 import 'dart:async';
-import 'package:clinio/features/patients/presentation/pages/add_patients_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/appointments/presentation/pages/appointments_page.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
+import '../../features/patients/presentation/bloc/patient_bloc.dart';
+import '../../features/patients/presentation/pages/add_patients_page.dart';
+import '../../features/patients/presentation/pages/detail_patient_page.dart';
 import '../../features/patients/presentation/pages/patients_page.dart';
 import '../../injection_container.dart';
+import '../../../../core/entities/patient_entity.dart';
 
 class AppRouter {
   static const String login = '/login';
   static const String appointments = '/';
   static const String patients = '/patients';
+  static const String patientDetail = '/patients/detail';
   static const String addPatients = '/addPatients';
 
   static final router = GoRouter(
@@ -23,13 +27,8 @@ class AppRouter {
       final authState = context.read<AuthBloc>().state;
       final bool loggingIn = state.matchedLocation == login;
 
-      if (authState is Unauthenticated && !loggingIn) {
-        return login;
-      }
-
-      if (authState is Authenticated && loggingIn) {
-        return appointments;
-      }
+      if (authState is Unauthenticated && !loggingIn) return login;
+      if (authState is Authenticated && loggingIn) return appointments;
 
       return null;
     },
@@ -43,6 +42,19 @@ class AppRouter {
       GoRoute(
         path: patients,
         builder: (context, state) => const PatientsPage(),
+      ),
+      GoRoute(
+        path: patientDetail,
+        builder: (context, state) {
+          // Recibimos el patient, el BLoC activo y el dentistId via extra
+          // Así no hay nueva suscripción a Firestore ni petición extra
+          final extra = state.extra as Map<String, dynamic>;
+          return DetailPatientPage(
+            patient: extra['patient'] as PatientEntity,
+            patientBloc: extra['bloc'] as PatientBloc,
+            dentistId: extra['dentistId'] as String,
+          );
+        },
       ),
       GoRoute(
         path: addPatients,
