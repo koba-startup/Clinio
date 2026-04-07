@@ -31,14 +31,9 @@ class DetailPatientPage extends StatelessWidget {
       child: BlocListener<PatientBloc, PatientState>(
         listener: (context, state) {
           if (state is PatientOperationSuccess) {
-            // Volvemos a la lista después de editar o eliminar
+            // Solo hacemos pop — el SnackBar lo maneja PatientsPage
+            // Así evitamos el doble mensaje
             context.pop();
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Paciente eliminado'),
-                backgroundColor: Colors.green,
-              ),
-            );
           } else if (state is PatientError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -206,7 +201,7 @@ class DetailPatientPage extends StatelessWidget {
   }
 }
 
-// ── Cabecera con foto ─────────────────────────────────────────────────────────
+// ── Widgets de UI ─────────────────────────────────────────────────────────────
 
 class _PatientHeader extends StatelessWidget {
   final PatientEntity patient;

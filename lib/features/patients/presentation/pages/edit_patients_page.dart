@@ -87,12 +87,10 @@ class _EditPatientViewState extends State<_EditPatientView> {
     }
   }
 
-  void _removePhoto() {
-    setState(() {
-      _photoUrl = null;
-      _photoRemoved = true;
-    });
-  }
+  void _removePhoto() => setState(() {
+    _photoUrl = null;
+    _photoRemoved = true;
+  });
 
   String _normalizePhone(String phone) {
     final cleaned = phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
@@ -115,11 +113,6 @@ class _EditPatientViewState extends State<_EditPatientView> {
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
 
-    // Si el usuario eliminó la foto, pasamos null para que el repository la borre de Storage
-    // Si hay un path local, el repository lo sube y reemplaza la anterior
-    // Si es una URL http, no cambió nada — se queda igual
-    final String? finalPhotoUrl = _photoRemoved ? null : _photoUrl;
-
     final updated = PatientEntity(
       id: widget.patient.id,
       name: _nameController.text.trim(),
@@ -130,7 +123,7 @@ class _EditPatientViewState extends State<_EditPatientView> {
       observations: _obsController.text.trim().isEmpty
           ? null
           : _obsController.text.trim(),
-      photoUrl: finalPhotoUrl,
+      photoUrl: _photoRemoved ? null : _photoUrl,
       createdAt: widget.patient.createdAt,
     );
 
@@ -147,6 +140,7 @@ class _EditPatientViewState extends State<_EditPatientView> {
     return BlocListener<PatientBloc, PatientState>(
       listener: (context, state) {
         if (state is PatientOperationSuccess) {
+          // Solo pop — el SnackBar lo muestra PatientsPage
           Navigator.pop(context);
         } else if (state is PatientError) {
           setState(() => _isSaving = false);
@@ -178,7 +172,7 @@ class _EditPatientViewState extends State<_EditPatientView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // ── Foto de perfil ────────────────────────────────────────
+                // ── Foto ──────────────────────────────────────────────────
                 Center(
                   child: Column(
                     children: [
@@ -321,12 +315,7 @@ class _EditPatientViewState extends State<_EditPatientView> {
   }
 
   Widget _buildPhotoPreview(ColorScheme colorScheme) {
-    // Caso 1: usuario eligió quitar la foto → avatar con iniciales
-    if (_photoRemoved || _photoUrl == null) {
-      return _initialsAvatar(colorScheme);
-    }
-
-    // Caso 2: path local → imagen del dispositivo aún no subida
+    if (_photoRemoved || _photoUrl == null) return _initialsAvatar(colorScheme);
     if (_photoUrl!.startsWith('/')) {
       return CircleAvatar(
         radius: 52,

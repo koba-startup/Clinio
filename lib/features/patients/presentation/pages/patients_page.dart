@@ -26,93 +26,111 @@ class PatientsPage extends StatelessWidget {
   }
 }
 
-class _PatientsView extends StatelessWidget {
+class _PatientsView extends StatefulWidget {
   final String dentistId;
 
   const _PatientsView({required this.dentistId});
 
   @override
+  State<_PatientsView> createState() => _PatientsViewState();
+}
+
+class _PatientsViewState extends State<_PatientsView> {
+  List<PatientEntity> _currentPatients = [];
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Mis Pacientes')),
-      body: BlocConsumer<PatientBloc, PatientState>(
-        listener: (context, state) {
-          if (state is PatientOperationSuccess) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Operación realizada con éxito'),
-                backgroundColor: Colors.green,
-              ),
-            );
-          } else if (state is PatientError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        },
-        builder: (context, state) {
-          if (state is PatientLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    // 1. Movemos el BlocConsumer hacia ARRIBA del Scaffold
+    return BlocConsumer<PatientBloc, PatientState>(
+      listener: (context, state) {
+        if (state is PatientOperationSuccess) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Operación realizada con éxito'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else if (state is PatientError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.message), backgroundColor: Colors.red),
+          );
+        }
+      },
+      builder: (context, state) {
+        // Actualizamos datos locales
+        if (state is PatientLoaded) {
+          _currentPatients = state.patients;
+        }
 
-          if (state is PatientError) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                  const SizedBox(height: 12),
-                  Text(state.message),
-                  const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: () => context.read<PatientBloc>().add(
-                      GetPatientsStarted(dentistId),
-                    ),
-                    child: const Text('Reintentar'),
-                  ),
-                ],
+        // 2. El Scaffold ahora se reconstruye en cada cambio de estado
+        return Scaffold(
+          appBar: AppBar(title: const Text('Mis Pacientes')),
+          body: _buildBody(context, state),
+          // Separamos el body para mayor limpieza
+          // 3. El FAB ahora lee correctamente si la lista está vacía en tiempo real
+          floatingActionButton: _currentPatients.isEmpty
+              ? null
+              : FloatingActionButton(
+                  onPressed: () => context.push('/addPatients'),
+                  child: const Icon(Icons.person_add),
+                ),
+        );
+      },
+    );
+  }
+
+  // Método auxiliar para mantener limpio el método build
+  Widget _buildBody(BuildContext context, PatientState state) {
+    // Loading inicial (sin datos previos)
+    if (state is PatientLoading && _currentPatients.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    // Error sin datos previos
+    if (state is PatientError && _currentPatients.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const SizedBox(height: 12),
+            Text(state.message),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => context.read<PatientBloc>().add(
+                GetPatientsStarted(widget.dentistId),
               ),
-            );
-          }
+              child: const Text('Reintentar'),
+            ),
+          ],
+        ),
+      );
+    }
 
-          if (state is PatientLoaded) {
-            if (state.patients.isEmpty) {
-              return _EmptyState(onAdd: () => context.push('/addPatients'));
-            }
-            return ListView.separated(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: state.patients.length,
-              separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
-              itemBuilder: (context, index) {
-                final patient = state.patients[index];
-                return _PatientTile(
-                  patient: patient,
-                  onTap: () {
-                    // Pasamos el BLoC activo y los datos — sin nueva petición a Firestore
-                    context.push(
-                      '/patients/detail',
-                      extra: {
-                        'patient': patient,
-                        'bloc': context.read<PatientBloc>(),
-                        'dentistId': dentistId,
-                      },
-                    );
-                  },
-                );
-              },
-            );
-          }
+    // Empty state confirmado
+    if (_currentPatients.isEmpty) {
+      return _EmptyState(onAdd: () => context.push('/addPatients'));
+    }
 
-          return const SizedBox();
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push('/addPatients'),
-        child: const Icon(Icons.person_add),
-      ),
+    // Lista con pacientes
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: _currentPatients.length,
+      separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
+      itemBuilder: (context, index) {
+        final patient = _currentPatients[index];
+        return _PatientTile(
+          patient: patient,
+          onTap: () => context.push(
+            '/patients/detail',
+            extra: {
+              'patient': patient,
+              'bloc': context.read<PatientBloc>(),
+              'dentistId': widget.dentistId,
+            },
+          ),
+        );
+      },
     );
   }
 }
@@ -152,7 +170,6 @@ class _PatientTile extends StatelessWidget {
 }
 
 // ── Avatar reutilizable con lazy loading ──────────────────────────────────────
-// Exportado para usarlo también en DetailPatientPage
 
 class PatientAvatar extends StatelessWidget {
   final String? photoUrl;
@@ -186,13 +203,10 @@ class PatientAvatar extends StatelessWidget {
       );
     }
 
-    // CachedNetworkImage descarga la foto solo cuando el widget aparece en pantalla
-    // y la guarda en disco — las siguientes veces no consume datos de red
     return CachedNetworkImage(
       imageUrl: photoUrl!,
       imageBuilder: (context, imageProvider) =>
           CircleAvatar(radius: radius, backgroundImage: imageProvider),
-      // Mientras carga: muestra iniciales (sin flash ni spinner molesto)
       placeholder: (context, url) => CircleAvatar(
         radius: radius,
         backgroundColor: colorScheme.primaryContainer,
@@ -205,7 +219,6 @@ class PatientAvatar extends StatelessWidget {
           ),
         ),
       ),
-      // Si falla la carga: fallback a iniciales silenciosamente
       errorWidget: (context, url, error) => CircleAvatar(
         radius: radius,
         backgroundColor: colorScheme.primaryContainer,
