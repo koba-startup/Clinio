@@ -1,9 +1,11 @@
 import 'dart:io';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
+
 import '../../../../core/entities/patient_entity.dart';
 import '../bloc/patient_bloc.dart';
 
@@ -46,9 +48,6 @@ class _EditPatientViewState extends State<_EditPatientView> {
   late final TextEditingController _obsController;
   final _picker = ImagePicker();
 
-  // null = sin foto | String que empieza con '/' = path local nuevo
-  // String que empieza con 'http' = URL existente de Firebase
-  // _photoRemoved = true significa que el usuario eligió quitar la foto
   String? _photoUrl;
   bool _photoRemoved = false;
   bool _isSaving = false;
@@ -74,9 +73,71 @@ class _EditPatientViewState extends State<_EditPatientView> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
+  void _showImageSourceSheet() {
+    final hasPhoto = _photoUrl != null && !_photoRemoved;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined),
+                title: const Text('Tomar foto'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _pickImage(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Elegir de la galería'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _pickImage(ImageSource.gallery);
+                },
+              ),
+              if (hasPhoto) ...[
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: Colors.red),
+                  title: const Text(
+                    'Quitar foto',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _removePhoto();
+                  },
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
     final pickedFile = await _picker.pickImage(
-      source: ImageSource.gallery,
+      source: source,
       imageQuality: 85,
     );
     if (pickedFile != null) {
@@ -140,7 +201,6 @@ class _EditPatientViewState extends State<_EditPatientView> {
     return BlocListener<PatientBloc, PatientState>(
       listener: (context, state) {
         if (state is PatientOperationSuccess) {
-          // Solo pop — el SnackBar lo muestra PatientsPage
           Navigator.pop(context);
         } else if (state is PatientError) {
           setState(() => _isSaving = false);
@@ -177,7 +237,7 @@ class _EditPatientViewState extends State<_EditPatientView> {
                   child: Column(
                     children: [
                       GestureDetector(
-                        onTap: _isSaving ? null : _pickImage,
+                        onTap: _isSaving ? null : _showImageSourceSheet,
                         child: Stack(
                           alignment: Alignment.bottomRight,
                           children: [
@@ -202,31 +262,21 @@ class _EditPatientViewState extends State<_EditPatientView> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      // Opción de quitar foto (solo si tiene una)
-                      if (_photoUrl != null && !_photoRemoved)
-                        TextButton.icon(
-                          icon: const Icon(Icons.delete_outline, size: 16),
-                          label: const Text('Quitar foto'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.red,
-                            padding: EdgeInsets.zero,
-                          ),
-                          onPressed: _isSaving ? null : _removePhoto,
-                        )
-                      else
-                        Text(
-                          'Toca para agregar foto',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade500,
-                          ),
+                      // Texto de ayuda contextual según el estado de la foto
+                      Text(
+                        (_photoUrl != null && !_photoRemoved)
+                            ? 'Toca para cambiar foto'
+                            : 'Toca para agregar foto',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade500,
                         ),
+                      ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 32),
 
-                // ── Nombre ────────────────────────────────────────────────
                 TextFormField(
                   controller: _nameController,
                   decoration: const InputDecoration(
@@ -240,7 +290,6 @@ class _EditPatientViewState extends State<_EditPatientView> {
                 ),
                 const SizedBox(height: 14),
 
-                // ── Teléfono ──────────────────────────────────────────────
                 TextFormField(
                   controller: _phoneController,
                   decoration: const InputDecoration(
@@ -258,7 +307,6 @@ class _EditPatientViewState extends State<_EditPatientView> {
                 ),
                 const SizedBox(height: 14),
 
-                // ── Email ─────────────────────────────────────────────────
                 TextFormField(
                   controller: _emailController,
                   decoration: const InputDecoration(
@@ -276,7 +324,6 @@ class _EditPatientViewState extends State<_EditPatientView> {
                 ),
                 const SizedBox(height: 14),
 
-                // ── Observaciones ─────────────────────────────────────────
                 TextFormField(
                   controller: _obsController,
                   decoration: const InputDecoration(
@@ -322,8 +369,6 @@ class _EditPatientViewState extends State<_EditPatientView> {
         backgroundImage: FileImage(File(_photoUrl!)),
       );
     }
-
-    // Caso 3: URL de Firebase → imagen en caché de CachedNetworkImage
     return CachedNetworkImage(
       imageUrl: _photoUrl!,
       imageBuilder: (context, imageProvider) =>
@@ -338,7 +383,6 @@ class _EditPatientViewState extends State<_EditPatientView> {
     final initials = parts.length >= 2
         ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
         : parts[0][0].toUpperCase();
-
     return CircleAvatar(
       radius: 52,
       backgroundColor: colorScheme.primaryContainer,

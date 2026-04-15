@@ -10,8 +10,6 @@ import '../../../../injection_container.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../bloc/patient_bloc.dart';
 
-// La página se envuelve en su propio BlocProvider para tener
-// un BLoC aislado — no comparte estado con la lista de pacientes
 class AddPatientsPage extends StatelessWidget {
   const AddPatientsPage({super.key});
 
@@ -54,17 +52,78 @@ class _AddPatientsViewState extends State<_AddPatientsView> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
+  // Muestra el sheet con opciones de fuente de imagen
+  void _showImageSourceSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined),
+                title: const Text('Tomar foto'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _pickImage(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Elegir de la galería'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _pickImage(ImageSource.gallery);
+                },
+              ),
+              if (_imageFile != null) ...[
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: Colors.red),
+                  title: const Text(
+                    'Quitar foto',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    setState(() => _imageFile = null);
+                  },
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
     final pickedFile = await _picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 85, // Pre-compresión ligera; el datasource hace la compresión real
+      source: source,
+      imageQuality: 85,
     );
     if (pickedFile != null) {
       setState(() => _imageFile = File(pickedFile.path));
     }
   }
 
-  // Normaliza a formato +52XXXXXXXXXX para la WhatsApp API
   String _normalizePhone(String phone) {
     final cleaned = phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
     if (cleaned.startsWith('+52')) return cleaned;
@@ -96,13 +155,14 @@ class _AddPatientsViewState extends State<_AddPatientsView> {
       observations: _obsController.text.trim().isEmpty
           ? null
           : _obsController.text.trim(),
-      // Pasamos el path local — el repository se encarga de subir y obtener la URL
       photoUrl: _imageFile?.path,
       createdAt: DateTime.now(),
     );
 
     setState(() => _isSaving = true);
-    context.read<PatientBloc>().add(AddPatientRequested(patient, widget.dentistId));
+    context.read<PatientBloc>().add(
+      AddPatientRequested(patient, widget.dentistId),
+    );
   }
 
   @override
@@ -122,10 +182,7 @@ class _AddPatientsViewState extends State<_AddPatientsView> {
         } else if (state is PatientError) {
           setState(() => _isSaving = false);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: Colors.red,
-            ),
+            SnackBar(content: Text(state.message), backgroundColor: Colors.red),
           );
         }
       },
@@ -138,24 +195,25 @@ class _AddPatientsViewState extends State<_AddPatientsView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // ── Selector de foto ──────────────────────────────────────
+                // ── Foto ──────────────────────────────────────────────────
                 Center(
                   child: GestureDetector(
-                    onTap: _isSaving ? null : _pickImage,
+                    onTap: _isSaving ? null : _showImageSourceSheet,
                     child: Stack(
                       alignment: Alignment.bottomRight,
                       children: [
                         CircleAvatar(
                           radius: 52,
                           backgroundColor: colorScheme.primaryContainer,
-                          backgroundImage:
-                          _imageFile != null ? FileImage(_imageFile!) : null,
+                          backgroundImage: _imageFile != null
+                              ? FileImage(_imageFile!)
+                              : null,
                           child: _imageFile == null
                               ? Icon(
-                            Icons.person,
-                            size: 48,
-                            color: colorScheme.onPrimaryContainer,
-                          )
+                                  Icons.person,
+                                  size: 48,
+                                  color: colorScheme.onPrimaryContainer,
+                                )
                               : null,
                         ),
                         Container(
@@ -184,7 +242,6 @@ class _AddPatientsViewState extends State<_AddPatientsView> {
                 ),
                 const SizedBox(height: 32),
 
-                // ── Nombre ────────────────────────────────────────────────
                 TextFormField(
                   controller: _nameController,
                   decoration: const InputDecoration(
@@ -192,12 +249,12 @@ class _AddPatientsViewState extends State<_AddPatientsView> {
                     prefixIcon: Icon(Icons.person_outline),
                   ),
                   textCapitalization: TextCapitalization.words,
-                  validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'El nombre es requerido' : null,
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'El nombre es requerido'
+                      : null,
                 ),
                 const SizedBox(height: 14),
 
-                // ── Teléfono ──────────────────────────────────────────────
                 TextFormField(
                   controller: _phoneController,
                   decoration: const InputDecoration(
@@ -207,13 +264,14 @@ class _AddPatientsViewState extends State<_AddPatientsView> {
                   ),
                   keyboardType: TextInputType.phone,
                   inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[\d\s\-\(\)\+]')),
+                    FilteringTextInputFormatter.allow(
+                      RegExp(r'[\d\s\-\(\)\+]'),
+                    ),
                   ],
                   validator: _validatePhone,
                 ),
                 const SizedBox(height: 14),
 
-                // ── Email ─────────────────────────────────────────────────
                 TextFormField(
                   controller: _emailController,
                   decoration: const InputDecoration(
@@ -231,7 +289,6 @@ class _AddPatientsViewState extends State<_AddPatientsView> {
                 ),
                 const SizedBox(height: 14),
 
-                // ── Observaciones ─────────────────────────────────────────
                 TextFormField(
                   controller: _obsController,
                   decoration: const InputDecoration(
@@ -247,18 +304,17 @@ class _AddPatientsViewState extends State<_AddPatientsView> {
                 ),
                 const SizedBox(height: 32),
 
-                // ── Botón guardar ─────────────────────────────────────────
                 ElevatedButton(
                   onPressed: _isSaving ? null : _submit,
                   child: _isSaving
                       ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
                       : const Text('Guardar paciente'),
                 ),
                 const SizedBox(height: 20),
