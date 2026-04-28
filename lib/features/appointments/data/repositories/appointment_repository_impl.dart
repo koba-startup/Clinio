@@ -47,7 +47,7 @@ class AppointmentRepositoryImpl implements AppointmentRepository {
 
   @override
   Future<Either<Failure, void>> updateAppointment(
-    appointment,
+    AppointmentEntity appointment,
     String dentistId,
   ) async {
     if (await networkInfo.isConnected) {

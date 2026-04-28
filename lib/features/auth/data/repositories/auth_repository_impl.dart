@@ -1,7 +1,7 @@
 import 'package:clinio/core/error/failure.dart';
 import 'package:clinio/features/auth/domain/repositories/auth_repository.dart';
 import 'package:dartz/dartz.dart';
-
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/network/network_info.dart';
 import '../datasource/auth_remote_data_source.dart';
 
@@ -23,8 +23,10 @@ class AuthRepositoryImpl implements AuthRepository {
       try {
         await remoteDataSource.signIn(email, password);
         return const Right(null);
+      } on FirebaseAuthException catch (e) {
+        return Left(AuthFailure(_mapFirebaseError(e.code)));
       } catch (e) {
-        return Left(AuthFailure(e.toString()));
+        return Left(AuthFailure('Error inesperado'));
       }
     } else {
       return const Left(ServerFailure('No hay conexión a internet'));
@@ -33,15 +35,11 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<Either<Failure, void>> signOut() async {
-    if (await networkInfo.isConnected) {
-      try {
-        await remoteDataSource.signOut();
-        return const Right(null);
-      } catch (e) {
-        return Left(AuthFailure(e.toString()));
-      }
-    } else {
-      return const Left(ServerFailure('No hay conexión a internet'));
+    try {
+      await remoteDataSource.signOut();
+      return const Right(null);
+    } catch (e) {
+      return Left(AuthFailure(e.toString()));
     }
   }
 
@@ -51,11 +49,32 @@ class AuthRepositoryImpl implements AuthRepository {
       try {
         await remoteDataSource.signUp(email, password);
         return const Right(null);
+      } on FirebaseAuthException catch (e) {
+        return Left(AuthFailure(_mapFirebaseError(e.code)));
       } catch (e) {
-        return Left(AuthFailure(e.toString()));
+        return Left(AuthFailure('Error inesperado'));
       }
     } else {
       return const Left(ServerFailure('No hay conexión a internet'));
     }
+  }
+}
+
+String _mapFirebaseError(String code) {
+  switch (code) {
+    case 'user-not-found':
+    case 'wrong-password':
+    case 'invalid-credential':
+      return 'Correo o contraseña incorrectos';
+    case 'user-disabled':
+      return 'Esta cuenta ha sido deshabilitada';
+    case 'too-many-requests':
+      return 'Demasiados intentos. Intenta más tarde';
+    case 'email-already-in-use':
+      return 'Este correo ya tiene una cuenta';
+    case 'weak-password':
+      return 'La contraseña debe tener al menos 6 caracteres';
+    default:
+      return 'Error de autenticación';
   }
 }
