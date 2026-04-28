@@ -32,9 +32,18 @@ import 'features/patients/presentation/bloc/patient_bloc.dart';
 final sl = GetIt.instance;
 
 Future<void> init() async {
-  //! Features ---------- Auth -----------------
+  ///! External
+  sl.registerLazySingleton(() => FirebaseAuth.instance);
+  sl.registerLazySingleton(() => InternetConnection());
+  sl.registerLazySingleton(() => FirebaseFirestore.instance);
+  sl.registerLazySingleton(() => FirebaseStorage.instance);
 
-  sl.registerFactory(
+  ///! Core
+  sl.registerLazySingleton<NetworkInfo>(() => NetworkInfoImpl(sl()));
+
+  ///! Features ---------- Auth -----------------
+
+  sl.registerLazySingleton(
     () => AuthBloc(
       loginUseCase: sl(),
       logoutUseCase: sl(),
@@ -57,7 +66,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => LogoutUseCase(sl()));
   sl.registerLazySingleton(() => GetAuthStatusUseCase(sl()));
 
-  //! Features ---------- Patients -----------------
+  ///! Features ---------- Patients -----------------
   sl.registerFactory(
     () => PatientBloc(
       getPatientsUseCase: sl(),
@@ -73,7 +82,7 @@ Future<void> init() async {
 
   // Data sources
   sl.registerLazySingleton<PatientRemoteDataSource>(
-    () => PatientRemoteDataSourceImpl(sl(),sl()),
+    () => PatientRemoteDataSourceImpl(sl(), sl()),
   );
 
   // Use cases
@@ -82,14 +91,16 @@ Future<void> init() async {
   sl.registerLazySingleton(() => UpdatePatientUseCase(sl()));
   sl.registerLazySingleton(() => DeletePatientUseCase(sl()));
 
-  //! Features ---------- Appointments -----------------
+  ///! Features ---------- Appointments -----------------
 
-  sl.registerFactory(() => AppointmentBloc(
-    getAppointmentsUseCase: sl(),
-    addAppointmentUseCase: sl(),
-    updateAppointmentUseCase: sl(),
-    deleteAppointmentUseCase: sl(),
-  ));
+  sl.registerFactory(
+    () => AppointmentBloc(
+      getAppointmentsUseCase: sl(),
+      addAppointmentUseCase: sl(),
+      updateAppointmentUseCase: sl(),
+      deleteAppointmentUseCase: sl(),
+    ),
+  );
   // Repository
   sl.registerLazySingleton<AppointmentRepository>(
     () => AppointmentRepositoryImpl(remoteDataSource: sl(), networkInfo: sl()),
@@ -104,13 +115,4 @@ Future<void> init() async {
   sl.registerLazySingleton(() => AddAppointmentUseCase(sl()));
   sl.registerLazySingleton(() => UpdateAppointmentUseCase(sl()));
   sl.registerLazySingleton(() => DeleteAppointmentUseCase(sl()));
-
-  //! Core
-  sl.registerLazySingleton<NetworkInfo>(() => NetworkInfoImpl(sl()));
-
-  //! External
-  sl.registerLazySingleton(() => FirebaseAuth.instance);
-  sl.registerLazySingleton(() => InternetConnection());
-  sl.registerLazySingleton(() => FirebaseFirestore.instance);
-  sl.registerLazySingleton(() => FirebaseStorage.instance);
 }
