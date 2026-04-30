@@ -1,4 +1,5 @@
 import 'package:clinio/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -110,6 +111,15 @@ class _LoginPageState extends State<LoginPage> {
                     return null;
                   },
                 ),
+                // "Olvidé mi contraseña" — solo en modo login
+                if (_isLogin)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: _sendPasswordReset,
+                      child: const Text('¿Olvidaste tu contraseña?'),
+                    ),
+                  ),
                 const SizedBox(height: 24),
 
                 // Botón + loading
@@ -166,5 +176,34 @@ class _LoginPageState extends State<LoginPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _sendPasswordReset() async {
+    final email = _emailController.text.trim();
+
+    if (email.isEmpty || !email.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ingresa tu correo primero')),
+      );
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Revisa tu correo para restablecer tu contraseña'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.code == 'user-not-found'
+            ? 'No existe una cuenta con ese correo'
+            : 'Error al enviar el correo')),
+      );
+    }
   }
 }

@@ -5,6 +5,8 @@ abstract class AuthRemoteDataSource {
 
   Future<void> signIn(String email, String password);
 
+  Future<void> sendPasswordReset(String email);
+
   Future<void> signOut();
 
   Stream<String?> get authStateChanges;
@@ -30,6 +32,11 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
   @override
   Future<void> signOut() => firebaseAuth.signOut();
+
+  @override
+  Future<void> sendPasswordReset(String email) async {
+    await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+  }
 
   @override
   Future<void> signUp(String email, String password) async {
