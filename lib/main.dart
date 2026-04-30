@@ -11,6 +11,8 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await di.init();
+  di.sl<AuthBloc>().add(AuthCheckRequested());
+
   runApp(const ClinioApp());
 }
 
@@ -21,9 +23,7 @@ class ClinioApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider<AuthBloc>(
-          create: (context) => di.sl<AuthBloc>()..add(AuthCheckRequested()),
-        ),
+        BlocProvider.value(value: di.sl<AuthBloc>()), // ← .value, no create
       ],
       child: MaterialApp.router(
         title: 'Clinio by Koba',

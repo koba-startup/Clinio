@@ -22,13 +22,14 @@ class AppRouter {
   static const String addPatients = '/addPatients';
 
   static final router = GoRouter(
-    initialLocation: login,
+    initialLocation: appointments, // ← '/' en lugar de '/login'
     refreshListenable: GoRouterRefreshStream(sl<AuthBloc>().stream),
     redirect: (context, state) {
 
       final authState = context.read<AuthBloc>().state;
       final bool loggingIn = state.matchedLocation == login;
 
+      if (authState is AuthInitial || authState is AuthLoading) return null; // ← línea nueva
       if (authState is Unauthenticated && !loggingIn) return login;
       if (authState is Authenticated && loggingIn) return appointments;
 
