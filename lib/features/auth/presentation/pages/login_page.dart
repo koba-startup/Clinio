@@ -115,9 +115,13 @@ class _LoginPageState extends State<LoginPage> {
                 if (_isLogin)
                   Align(
                     alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: _sendPasswordReset,
-                      child: const Text('¿Olvidaste tu contraseña?'),
+                    child: BlocBuilder<AuthBloc, AuthState>(
+                      builder: (context, state) {
+                        return TextButton(
+                          onPressed: state is AuthLoading ? null : _sendPasswordReset,
+                          child: const Text('¿Olvidaste tu contraseña?'),
+                        );
+                      },
                     ),
                   ),
                 const SizedBox(height: 24),
@@ -125,7 +129,6 @@ class _LoginPageState extends State<LoginPage> {
                 // Botón + loading
                 BlocConsumer<AuthBloc, AuthState>(
                   listener: (context, state) {
-                    // Solo mostramos errores — la navegación la maneja el router
                     if (state is AuthError) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
@@ -136,23 +139,31 @@ class _LoginPageState extends State<LoginPage> {
                     }
                   },
                   builder: (context, state) {
-                    if (state is AuthLoading) {
-                      return const CircularProgressIndicator();
-                    }
+                    final isLoading = state is AuthLoading;
                     return Column(
                       children: [
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
-                            onPressed: _submit,
-                            child: Text(
-                              _isLogin ? "Iniciar sesión" : "Crear cuenta",
-                            ),
+                            // null deshabilita el botón visualmente y bloquea el tap
+                            onPressed: isLoading ? null : _submit,
+                            child: isLoading
+                                ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                                : Text(_isLogin ? "Iniciar sesión" : "Crear cuenta"),
                           ),
                         ),
                         const SizedBox(height: 16),
                         TextButton(
-                          onPressed: () {
+                          onPressed: isLoading
+                              ? null // También bloqueado durante loading
+                              : () {
                             setState(() {
                               _isLogin = !_isLogin;
                               _formKey.currentState?.reset();
