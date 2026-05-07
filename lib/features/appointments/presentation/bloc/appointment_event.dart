@@ -37,3 +37,11 @@ class DeleteAppointmentRequested extends AppointmentEvent {
 
   DeleteAppointmentRequested(this.appointmentId, this.dentistId);
 }
+
+class AppointmentsStreamError extends AppointmentEvent {
+  final String message;
+  AppointmentsStreamError(this.message);
+
+  @override
+  List<Object?> get props => [message];
+}

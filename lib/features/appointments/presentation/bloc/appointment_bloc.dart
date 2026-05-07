@@ -34,7 +34,11 @@ class AppointmentBloc extends Bloc<AppointmentEvent, AppointmentState> {
       _appointmentsSubscription = getAppointmentsUseCase(event.dentistId)
           .listen(
             (appointments) => add(AppointmentsUpdated(appointments)),
-            onError: (error) => add(AppointmentsUpdated(const [])),
+            onError: (error) => add(
+              AppointmentsStreamError(
+                'Error al cargar las citas. Verifica tu conexión.',
+              ),
+            ),
           );
     });
 
@@ -116,6 +120,10 @@ class AppointmentBloc extends Bloc<AppointmentEvent, AppointmentState> {
         (_) => emit(AppointmentOperationSuccess()),
       );
     });
+
+    on<AppointmentsStreamError>(
+      (event, emit) => emit(AppointmentError(event.message)),
+    );
   }
 
   @override
