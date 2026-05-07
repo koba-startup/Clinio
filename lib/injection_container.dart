@@ -58,7 +58,7 @@ Future<void> init() async {
   );
   // Data sources
   sl.registerLazySingleton<AuthRemoteDataSource>(
-    () => AuthRemoteDataSourceImpl(sl()),
+    () => AuthRemoteDataSourceImpl(sl(), sl()),
   );
   // Use cases
   sl.registerLazySingleton(() => LoginUseCase(sl()));

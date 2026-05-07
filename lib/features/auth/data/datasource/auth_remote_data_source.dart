@@ -1,4 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../models/user_model.dart';
 
 abstract class AuthRemoteDataSource {
   Future<void> signUp(String email, String password);
@@ -14,11 +16,11 @@ abstract class AuthRemoteDataSource {
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   final FirebaseAuth firebaseAuth;
+  final FirebaseFirestore firestore; // ← agregar
 
-  AuthRemoteDataSourceImpl(this.firebaseAuth);
+  AuthRemoteDataSourceImpl(this.firebaseAuth, this.firestore); // ← agregar
 
   @override
-  // TODO: implement authStateChanges
   Stream<String?> get authStateChanges =>
       firebaseAuth.authStateChanges().map((user) => user?.uid);
 
@@ -35,14 +37,27 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
   @override
   Future<void> sendPasswordReset(String email) async {
-    await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+    await firebaseAuth.sendPasswordResetEmail(email: email);
   }
 
   @override
   Future<void> signUp(String email, String password) async {
-    await firebaseAuth.createUserWithEmailAndPassword(
+    // 1. Crear usuario en Firebase Auth
+    final credential = await firebaseAuth.createUserWithEmailAndPassword(
       email: email,
       password: password,
     );
+
+    // 2. Crear documento en Firestore con los datos iniciales
+    final user = UserModel(
+      id: credential.user!.uid,
+      email: email,
+      plan: 'free',
+    );
+
+    await firestore
+        .collection('users')
+        .doc(credential.user!.uid)
+        .set(user.toFirestore());
   }
 }
