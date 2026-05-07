@@ -44,6 +44,23 @@ class AppointmentBloc extends Bloc<AppointmentEvent, AppointmentState> {
 
     // 2. Operaciones de escritura (CRUD)
     on<AddAppointmentRequested>((event, emit) async {
+      // Validar colisión antes de guardar
+      if (state is AppointmentLoaded) {
+        final collision = _findCollision(
+          event.appointment,
+          (state as AppointmentLoaded).appointments,
+        );
+        if (collision != null) {
+          emit(
+            AppointmentError(
+              'Horario ocupado: ya tienes una cita con ${collision.patientName} '
+              'a las ${_formatTime(collision.dateTime)}',
+            ),
+          );
+          return;
+        }
+      }
+
       final result = await addAppointmentUseCase(
         AddAppointmentParams(
           appointment: event.appointment,
@@ -57,6 +74,24 @@ class AppointmentBloc extends Bloc<AppointmentEvent, AppointmentState> {
     });
 
     on<UpdateAppointmentRequested>((event, emit) async {
+      if (state is AppointmentLoaded) {
+        // Excluir la cita actual de la validación (no colisiona consigo misma)
+        final otherAppointments = (state as AppointmentLoaded).appointments
+            .where((a) => a.id != event.appointment.id)
+            .toList();
+
+        final collision = _findCollision(event.appointment, otherAppointments);
+        if (collision != null) {
+          emit(
+            AppointmentError(
+              'Horario ocupado: ya tienes una cita con ${collision.patientName} '
+              'a las ${_formatTime(collision.dateTime)}',
+            ),
+          );
+          return;
+        }
+      }
+
       final result = await updateAppointmentUseCase(
         UpdateAppointmentParams(
           appointment: event.appointment,
@@ -87,5 +122,37 @@ class AppointmentBloc extends Bloc<AppointmentEvent, AppointmentState> {
   Future<void> close() {
     _appointmentsSubscription?.cancel();
     return super.close();
+  }
+
+  AppointmentEntity? _findCollision(
+    AppointmentEntity newAppt,
+    List<AppointmentEntity> existing,
+  ) {
+    final newStart = newAppt.dateTime;
+    final newEnd = newAppt.dateTime.add(
+      Duration(minutes: newAppt.durationMinutes),
+    );
+
+    for (final appt in existing) {
+      // Las citas canceladas no bloquean el horario
+      if (appt.status == AppointmentStatus.cancelled) continue;
+
+      final existingStart = appt.dateTime;
+      final existingEnd = appt.dateTime.add(
+        Duration(minutes: appt.durationMinutes),
+      );
+
+      // Hay colisión si los rangos se solapan
+      final overlaps =
+          newStart.isBefore(existingEnd) && newEnd.isAfter(existingStart);
+      if (overlaps) return appt;
+    }
+    return null;
+  }
+
+  String _formatTime(DateTime dt) {
+    final hour = dt.hour.toString().padLeft(2, '0');
+    final minute = dt.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
   }
 }
