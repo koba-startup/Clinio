@@ -1,13 +1,15 @@
 import 'package:equatable/equatable.dart';
 
-enum AppointmentStatus { pending, completed, cancelled }
+enum AppointmentStatus { pending, confirmed, completed, cancelled }
 
 class AppointmentEntity extends Equatable {
   final String id;
   final String patientId;
-  final String patientName; // Denormalizamos el nombre para no hacer "joins" caros en Firestore
+  final String patientName;
   final DateTime dateTime;
-  final String description;
+  final int durationMinutes; // ← nuevo: para calcular espacios libres
+  final String treatment;    // ← nuevo: "Limpieza", "Extracción", etc.
+  final String? notes;       // ← description renombrado, ahora opcional
   final AppointmentStatus status;
 
   const AppointmentEntity({
@@ -15,10 +17,15 @@ class AppointmentEntity extends Equatable {
     required this.patientId,
     required this.patientName,
     required this.dateTime,
-    this.description = '',
+    required this.treatment,
+    this.durationMinutes = 60, // 1 hora por default
+    this.notes,
     this.status = AppointmentStatus.pending,
   });
 
   @override
-  List<Object?> get props => [id, patientId, patientName, dateTime, description, status];
+  List<Object?> get props => [
+    id, patientId, patientName, dateTime,
+    durationMinutes, treatment, notes, status,
+  ];
 }

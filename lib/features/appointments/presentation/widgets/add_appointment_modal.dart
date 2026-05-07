@@ -130,7 +130,7 @@ class _AddAppointmentModalState extends State<AddAppointmentModal> {
                         patientId: _selectedPatient!.id,
                         patientName: _selectedPatient!.name,
                         dateTime: finalDateTime,
-                        description: _descController.text,
+                        treatment: _descController.text,
                       ),
                     );
                     Navigator.pop(context);

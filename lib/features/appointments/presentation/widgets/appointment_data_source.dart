@@ -15,14 +15,14 @@ class AppointmentDataSource extends CalendarDataSource {
 
   @override
   DateTime getEndTime(int index) {
-    // Asumimos que cada cita dura 1 hora por defecto
-    return _getAppointmentData(index).dateTime.add(const Duration(hours: 1));
+    final appointment = _getAppointmentData(index);
+    return appointment.dateTime.add(Duration(minutes: appointment.durationMinutes));
   }
 
   @override
   String getSubject(int index) {
     final appo = _getAppointmentData(index);
-    return '${appo.patientName} - ${appo.description}';
+    return '${appo.patientName} - ${appo.treatment}';
   }
 
   @override
@@ -35,7 +35,9 @@ class AppointmentDataSource extends CalendarDataSource {
       case AppointmentStatus.cancelled:
         return Colors.red;
       case AppointmentStatus.pending:
-      return Colors.blueAccent;
+        return Colors.blueAccent;
+      case AppointmentStatus.confirmed:
+        return Colors.orange;
     }
   }
 

@@ -32,7 +32,9 @@ class AppointmentRepositoryImpl implements AppointmentRepository {
           patientId: appointment.patientId,
           patientName: appointment.patientName,
           dateTime: appointment.dateTime,
-          description: appointment.description,
+          treatment: appointment.treatment,
+          durationMinutes: appointment.durationMinutes,
+          notes: appointment.notes,
           status: appointment.status,
         );
         await remoteDataSource.addAppointment(model, dentistId);
@@ -57,7 +59,9 @@ class AppointmentRepositoryImpl implements AppointmentRepository {
           patientId: appointment.patientId,
           patientName: appointment.patientName,
           dateTime: appointment.dateTime,
-          description: appointment.description,
+          treatment: appointment.treatment,
+          durationMinutes: appointment.durationMinutes,
+          notes: appointment.notes,
           status: appointment.status,
         );
         await remoteDataSource.updateAppointment(model, dentistId);

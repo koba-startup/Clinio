@@ -8,8 +8,10 @@ class AppointmentModel extends AppointmentEntity {
     required super.patientId,
     required super.patientName,
     required super.dateTime,
-    super.description,
+    super.durationMinutes = 60,
+    super.notes,
     super.status,
+    required super.treatment,
   });
 
   factory AppointmentModel.fromFirestore(DocumentSnapshot doc) {
@@ -18,10 +20,10 @@ class AppointmentModel extends AppointmentEntity {
       id: doc.id,
       patientId: data['patientId'] ?? '',
       patientName: data['patientName'] ?? '',
-
       dateTime: (data['dateTime'] as Timestamp).toDate(),
-      description: data['description'] ?? '',
-
+      treatment: data['treatment'] ?? '',
+      durationMinutes: data['durationMinutes'] ?? 60,
+      notes: data['notes'],
       status: AppointmentStatus.values.firstWhere(
         (e) => e.toString() == data['status'],
         orElse: () => AppointmentStatus.pending,
@@ -34,7 +36,9 @@ class AppointmentModel extends AppointmentEntity {
       'patientId': patientId,
       'patientName': patientName,
       'dateTime': Timestamp.fromDate(dateTime),
-      'description': description,
+      'treatment': treatment,
+      'durationMinutes': durationMinutes,
+      'notes': notes,
       'status': status.toString(),
     };
   }
