@@ -19,9 +19,8 @@ class AppointmentsPage extends StatefulWidget {
 
 class _AppointmentsPageState extends State<AppointmentsPage> {
   final CalendarController _calendarController = CalendarController();
-
-  // Guardamos las citas localmente para evitar que desaparezcan durante estados de transición
   List<AppointmentEntity> _currentAppointments = [];
+  bool _showCalendar = false; // ← vista diaria es la default
 
   @override
   void dispose() {
@@ -35,34 +34,22 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
     if (authState is! Authenticated) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    final dentistId = authState
-        .userId; // Verifica si es .user.id o .userId según tu AuthState
+    final dentistId = authState.userId;
 
     return BlocProvider(
       create: (context) =>
-          sl<AppointmentBloc>()..add(GetAppointmentsStarted(dentistId)),
+      sl<AppointmentBloc>()..add(GetAppointmentsStarted(dentistId)),
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Agenda Clinio'),
+          title: Text(_showCalendar ? 'Calendario' : 'Mi día'),
           actions: [
-            PopupMenuButton<CalendarView>(
-              icon: const Icon(Icons.calendar_view_month),
-              onSelected: (view) =>
-                  setState(() => _calendarController.view = view),
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: CalendarView.day,
-                  child: Text('Día'),
-                ),
-                const PopupMenuItem(
-                  value: CalendarView.week,
-                  child: Text('Semana'),
-                ),
-                const PopupMenuItem(
-                  value: CalendarView.month,
-                  child: Text('Mes'),
-                ),
-              ],
+            // Toggle entre vista diaria y calendario
+            IconButton(
+              icon: Icon(
+                _showCalendar ? Icons.view_list : Icons.calendar_month,
+              ),
+              tooltip: _showCalendar ? 'Ver lista del día' : 'Ver calendario',
+              onPressed: () => setState(() => _showCalendar = !_showCalendar),
             ),
             IconButton(
               icon: const Icon(Icons.logout, color: Colors.redAccent),
@@ -72,7 +59,6 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
           ],
         ),
         drawer: _buildDrawer(context),
-        // CAMBIO CLAVE: Usamos BlocConsumer
         body: BlocConsumer<AppointmentBloc, AppointmentState>(
           listener: (context, state) {
             if (state is AppointmentOperationSuccess) {
@@ -93,7 +79,6 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
             }
           },
           builder: (context, state) {
-            // Actualizamos nuestra lista local si el estado es Loaded
             if (state is AppointmentLoaded) {
               _currentAppointments = state.appointments;
             }
@@ -102,23 +87,9 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
               return const Center(child: CircularProgressIndicator());
             }
 
-            // Siempre mostramos el calendario si tenemos datos,
-            // incluso si el estado actual es "OperationSuccess"
-            return SfCalendar(
-              controller: _calendarController,
-              view: CalendarView.day,
-              dataSource: AppointmentDataSource(_currentAppointments),
-              timeSlotViewSettings: const TimeSlotViewSettings(
-                startHour: 7,
-                endHour: 20,
-              ),
-              onTap: (details) {
-                if (details.appointments != null && details.appointments!.isNotEmpty) {
-                  final appo = details.appointments!.first as AppointmentEntity;
-                  _showAppointmentDetail(context, appo, dentistId);
-                }
-              },
-            );
+            return _showCalendar
+                ? _buildCalendar(context, dentistId)
+                : _buildDayView(context, dentistId);
           },
         ),
         floatingActionButton: Builder(
@@ -131,52 +102,115 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
     );
   }
 
-  Widget _buildDrawer(BuildContext context) {
-    return Drawer(
-      child: ListView(
-        children: [
-          const DrawerHeader(
-            decoration: BoxDecoration(color: Colors.blue),
-            child: Text(
-              'Clinio Menu',
-              style: TextStyle(color: Colors.white, fontSize: 24),
-            ),
+  // ─── VISTA DIARIA ────────────────────────────────────────────────────────
+
+  Widget _buildDayView(BuildContext context, String dentistId) {
+    final now = DateTime.now();
+    final todayAppts = _currentAppointments
+        .where((a) =>
+    a.dateTime.year == now.year &&
+        a.dateTime.month == now.month &&
+        a.dateTime.day == now.day &&
+        a.status != AppointmentStatus.cancelled)
+        .toList()
+      ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
+
+    // Horario del consultorio: 8am a 8pm en slots de 1 hora
+    final slots = List.generate(12, (i) => TimeOfDay(hour: 8 + i, minute: 0));
+
+    return Column(
+      children: [
+        // Encabezado de fecha
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          color: Theme.of(context).colorScheme.primaryContainer,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _formatDate(now),
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                todayAppts.isEmpty
+                    ? 'Sin citas hoy'
+                    : '${todayAppts.length} cita${todayAppts.length > 1 ? 's' : ''}',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onPrimaryContainer
+                      .withOpacity(0.7),
+                ),
+              ),
+            ],
           ),
-          ListTile(
-            leading: const Icon(Icons.people),
-            title: const Text('Pacientes'),
-            onTap: () {
-              Navigator.pop(context);
-              context.push('/patients');
+        ),
+
+        // Lista de slots del día
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            itemCount: slots.length,
+            itemBuilder: (context, index) {
+              final slot = slots[index];
+              final slotStart = DateTime(
+                now.year, now.month, now.day,
+                slot.hour, slot.minute,
+              );
+              final slotEnd = slotStart.add(const Duration(hours: 1));
+
+              // Buscar cita que ocupe este slot
+              final appt = todayAppts.where((a) {
+                final end = a.dateTime.add(
+                  Duration(minutes: a.durationMinutes),
+                );
+                return a.dateTime.isBefore(slotEnd) &&
+                    end.isAfter(slotStart);
+              }).firstOrNull;
+
+              return _SlotTile(
+                slotTime: slot,
+                appointment: appt,
+                onTap: appt != null
+                    ? () => _showAppointmentDetail(context, appt, dentistId)
+                    : null,
+              );
             },
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  void _showAddAppointment(BuildContext context, String dentistId) {
-    final appointmentBloc = context.read<AppointmentBloc>();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (modalContext) => MultiBlocProvider(
-        providers: [
-          BlocProvider.value(value: appointmentBloc),
-          BlocProvider(
-            create: (context) =>
-                sl<PatientBloc>()..add(GetPatientsStarted(dentistId)),
-          ),
-        ],
-        child: AddAppointmentModal(
-          dentistId: dentistId,
-          onSave: (newAppo) {
-            appointmentBloc.add(AddAppointmentRequested(newAppo, dentistId));
-          },
-        ),
+  // ─── VISTA CALENDARIO ────────────────────────────────────────────────────
+
+  Widget _buildCalendar(BuildContext context, String dentistId) {
+    return SfCalendar(
+      controller: _calendarController,
+      view: CalendarView.month,
+      dataSource: AppointmentDataSource(_currentAppointments),
+      timeSlotViewSettings: const TimeSlotViewSettings(
+        startHour: 7,
+        endHour: 20,
       ),
+      onTap: (details) {
+        if (details.appointments != null &&
+            details.appointments!.isNotEmpty) {
+          final appo = details.appointments!.first as AppointmentEntity;
+          _showAppointmentDetail(context, appo, dentistId);
+        }
+      },
     );
   }
+
+  // ─── DETAIL / ACCIONES ───────────────────────────────────────────────────
 
   void _showAppointmentDetail(
       BuildContext context,
@@ -193,7 +227,6 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Encabezado
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -210,10 +243,7 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
               ],
             ),
             const SizedBox(height: 8),
-            Text(
-              appo.treatment,
-              style: const TextStyle(fontSize: 15),
-            ),
+            Text(appo.treatment, style: const TextStyle(fontSize: 15)),
             Text(
               '${_formatTime(appo.dateTime)} · ${appo.durationMinutes} min',
               style: TextStyle(fontSize: 13, color: Colors.grey[600]),
@@ -226,8 +256,6 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
               ),
             ],
             const Divider(height: 28),
-
-            // Acciones de estado
             const Text(
               'Cambiar estado',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
@@ -241,10 +269,8 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
                     label: 'Confirmar',
                     color: Colors.orange,
                     onTap: () {
-                      _updateStatus(
-                        appointmentBloc, appo, dentistId,
-                        AppointmentStatus.confirmed,
-                      );
+                      _updateStatus(appointmentBloc, appo, dentistId,
+                          AppointmentStatus.confirmed);
                       Navigator.pop(context);
                     },
                   ),
@@ -253,10 +279,8 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
                     label: 'Completada',
                     color: Colors.green,
                     onTap: () {
-                      _updateStatus(
-                        appointmentBloc, appo, dentistId,
-                        AppointmentStatus.completed,
-                      );
+                      _updateStatus(appointmentBloc, appo, dentistId,
+                          AppointmentStatus.completed);
                       Navigator.pop(context);
                     },
                   ),
@@ -265,10 +289,8 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
                     label: 'Cancelar',
                     color: Colors.red,
                     onTap: () {
-                      _updateStatus(
-                        appointmentBloc, appo, dentistId,
-                        AppointmentStatus.cancelled,
-                      );
+                      _updateStatus(appointmentBloc, appo, dentistId,
+                          AppointmentStatus.cancelled);
                       Navigator.pop(context);
                     },
                   ),
@@ -287,7 +309,6 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
       String dentistId,
       AppointmentStatus newStatus,
       ) {
-    // Creamos una copia del entity con el nuevo estado
     final updated = AppointmentEntity(
       id: appo.id,
       patientId: appo.patientId,
@@ -316,12 +337,177 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
     );
   }
 
+  // ─── DRAWER ──────────────────────────────────────────────────────────────
+
+  Widget _buildDrawer(BuildContext context) {
+    return Drawer(
+      child: ListView(
+        children: [
+          const DrawerHeader(
+            decoration: BoxDecoration(color: Colors.blue),
+            child: Text(
+              'Clinio',
+              style: TextStyle(color: Colors.white, fontSize: 24),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.people),
+            title: const Text('Pacientes'),
+            onTap: () {
+              Navigator.pop(context);
+              context.push('/patients');
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── ADD APPOINTMENT ─────────────────────────────────────────────────────
+
+  void _showAddAppointment(BuildContext context, String dentistId) {
+    final appointmentBloc = context.read<AppointmentBloc>();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (modalContext) => MultiBlocProvider(
+        providers: [
+          BlocProvider.value(value: appointmentBloc),
+          BlocProvider(
+            create: (_) =>
+            sl<PatientBloc>()..add(GetPatientsStarted(dentistId)),
+          ),
+        ],
+        child: AddAppointmentModal(
+          dentistId: dentistId,
+          onSave: (newAppo) {
+            appointmentBloc.add(AddAppointmentRequested(newAppo, dentistId));
+          },
+        ),
+      ),
+    );
+  }
+
+  // ─── HELPERS ─────────────────────────────────────────────────────────────
+
   String _formatTime(DateTime dt) {
     final hour = dt.hour.toString().padLeft(2, '0');
     final minute = dt.minute.toString().padLeft(2, '0');
     return '$hour:$minute';
   }
 
+  String _formatDate(DateTime dt) {
+    const months = [
+      '', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+    ];
+    const days = [
+      '', 'lunes', 'martes', 'miércoles', 'jueves',
+      'viernes', 'sábado', 'domingo',
+    ];
+    return '${days[dt.weekday]}, ${dt.day} de ${months[dt.month]}';
+  }
+}
+
+// ─── WIDGETS AUXILIARES ──────────────────────────────────────────────────────
+
+class _SlotTile extends StatelessWidget {
+  final TimeOfDay slotTime;
+  final AppointmentEntity? appointment;
+  final VoidCallback? onTap;
+
+  const _SlotTile({
+    required this.slotTime,
+    this.appointment,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final timeLabel =
+        '${slotTime.hour.toString().padLeft(2, '0')}:00';
+    final isEmpty = appointment == null;
+
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: isEmpty
+              ? Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3)
+              : _statusColor(appointment!.status).withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isEmpty
+                ? Theme.of(context).colorScheme.outline.withOpacity(0.2)
+                : _statusColor(appointment!.status).withOpacity(0.4),
+          ),
+        ),
+        child: Row(
+          children: [
+            // Hora
+            SizedBox(
+              width: 48,
+              child: Text(
+                timeLabel,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: isEmpty ? Colors.grey[500] : Colors.grey[700],
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+
+            // Contenido del slot
+            Expanded(
+              child: isEmpty
+                  ? Text(
+                'Disponible',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey[400],
+                  fontStyle: FontStyle.italic,
+                ),
+              )
+                  : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    appointment!.patientName,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    appointment!.treatment,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Indicador de estado
+            if (!isEmpty) _StatusChip(appointment!.status),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _statusColor(AppointmentStatus status) {
+    return switch (status) {
+      AppointmentStatus.pending   => Colors.blueAccent,
+      AppointmentStatus.confirmed => Colors.orange,
+      AppointmentStatus.completed => Colors.green,
+      AppointmentStatus.cancelled => Colors.red,
+    };
+  }
 }
 
 class _StatusChip extends StatelessWidget {
@@ -337,7 +523,7 @@ class _StatusChip extends StatelessWidget {
       AppointmentStatus.cancelled => ('Cancelada',  Colors.red),
     };
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: color.withOpacity(0.12),
         borderRadius: BorderRadius.circular(12),
@@ -346,7 +532,7 @@ class _StatusChip extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: FontWeight.w500,
           color: color,
         ),

@@ -23,7 +23,18 @@ class _AddAppointmentModalState extends State<AddAppointmentModal> {
   PatientEntity? _selectedPatient;
   DateTime _selectedDate = DateTime.now();
   TimeOfDay _selectedTime = TimeOfDay.now();
-  final _descController = TextEditingController();
+  final List<String> _treatments = [
+    'Limpieza dental',
+    'Revisión general',
+    'Extracción',
+    'Endodoncia',
+    'Ortodoncia',
+    'Blanqueamiento',
+    'Empaste',
+    'Radiografía',
+    'Otro',
+  ];
+  String? _selectedTreatment;
 
   @override
   Widget build(BuildContext context) {
@@ -103,11 +114,12 @@ class _AddAppointmentModalState extends State<AddAppointmentModal> {
             ],
           ),
 
-          TextField(
-            controller: _descController,
-            decoration: const InputDecoration(
-              labelText: 'Motivo de consulta (opcional)',
-            ),
+          DropdownButtonFormField<String>(
+            decoration: const InputDecoration(labelText: 'Tratamiento'),
+            items: _treatments
+                .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                .toList(),
+            onChanged: (val) => setState(() => _selectedTreatment = val),
           ),
           const SizedBox(height: 25),
 
@@ -130,7 +142,7 @@ class _AddAppointmentModalState extends State<AddAppointmentModal> {
                         patientId: _selectedPatient!.id,
                         patientName: _selectedPatient!.name,
                         dateTime: finalDateTime,
-                        treatment: _descController.text,
+                        treatment: _selectedTreatment ?? '',
                       ),
                     );
                     Navigator.pop(context);
