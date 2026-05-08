@@ -113,12 +113,9 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
                 endHour: 20,
               ),
               onTap: (details) {
-                if (details.appointments != null &&
-                    details.appointments!.isNotEmpty) {
+                if (details.appointments != null && details.appointments!.isNotEmpty) {
                   final appo = details.appointments!.first as AppointmentEntity;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Paciente: ${appo.patientName}')),
-                  );
+                  _showAppointmentDetail(context, appo, dentistId);
                 }
               },
             );
@@ -176,6 +173,182 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
           onSave: (newAppo) {
             appointmentBloc.add(AddAppointmentRequested(newAppo, dentistId));
           },
+        ),
+      ),
+    );
+  }
+
+  void _showAppointmentDetail(
+      BuildContext context,
+      AppointmentEntity appo,
+      String dentistId,
+      ) {
+    final appointmentBloc = context.read<AppointmentBloc>();
+
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Encabezado
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    appo.patientName,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                _StatusChip(appo.status),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              appo.treatment,
+              style: const TextStyle(fontSize: 15),
+            ),
+            Text(
+              '${_formatTime(appo.dateTime)} · ${appo.durationMinutes} min',
+              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+            ),
+            if (appo.notes != null && appo.notes!.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                appo.notes!,
+                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+              ),
+            ],
+            const Divider(height: 28),
+
+            // Acciones de estado
+            const Text(
+              'Cambiar estado',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              children: [
+                if (appo.status != AppointmentStatus.confirmed)
+                  _statusButton(
+                    label: 'Confirmar',
+                    color: Colors.orange,
+                    onTap: () {
+                      _updateStatus(
+                        appointmentBloc, appo, dentistId,
+                        AppointmentStatus.confirmed,
+                      );
+                      Navigator.pop(context);
+                    },
+                  ),
+                if (appo.status != AppointmentStatus.completed)
+                  _statusButton(
+                    label: 'Completada',
+                    color: Colors.green,
+                    onTap: () {
+                      _updateStatus(
+                        appointmentBloc, appo, dentistId,
+                        AppointmentStatus.completed,
+                      );
+                      Navigator.pop(context);
+                    },
+                  ),
+                if (appo.status != AppointmentStatus.cancelled)
+                  _statusButton(
+                    label: 'Cancelar',
+                    color: Colors.red,
+                    onTap: () {
+                      _updateStatus(
+                        appointmentBloc, appo, dentistId,
+                        AppointmentStatus.cancelled,
+                      );
+                      Navigator.pop(context);
+                    },
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _updateStatus(
+      AppointmentBloc bloc,
+      AppointmentEntity appo,
+      String dentistId,
+      AppointmentStatus newStatus,
+      ) {
+    // Creamos una copia del entity con el nuevo estado
+    final updated = AppointmentEntity(
+      id: appo.id,
+      patientId: appo.patientId,
+      patientName: appo.patientName,
+      dateTime: appo.dateTime,
+      treatment: appo.treatment,
+      durationMinutes: appo.durationMinutes,
+      notes: appo.notes,
+      status: newStatus,
+    );
+    bloc.add(UpdateAppointmentRequested(updated, dentistId));
+  }
+
+  Widget _statusButton({
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return OutlinedButton(
+      onPressed: onTap,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: color,
+        side: BorderSide(color: color),
+      ),
+      child: Text(label),
+    );
+  }
+
+  String _formatTime(DateTime dt) {
+    final hour = dt.hour.toString().padLeft(2, '0');
+    final minute = dt.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
+  }
+
+}
+
+class _StatusChip extends StatelessWidget {
+  final AppointmentStatus status;
+  const _StatusChip(this.status);
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color) = switch (status) {
+      AppointmentStatus.pending   => ('Pendiente',  Colors.blueAccent),
+      AppointmentStatus.confirmed => ('Confirmada', Colors.orange),
+      AppointmentStatus.completed => ('Completada', Colors.green),
+      AppointmentStatus.cancelled => ('Cancelada',  Colors.red),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.4)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: color,
         ),
       ),
     );
