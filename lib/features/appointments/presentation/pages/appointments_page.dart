@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:syncfusion_flutter_calendar/calendar.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/entities/appointment_entity.dart';
+import '../../../../core/entities/patient_entity.dart';
 import '../../../../injection_container.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../patients/presentation/bloc/patient_bloc.dart';
@@ -36,9 +38,17 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
     }
     final dentistId = authState.userId;
 
-    return BlocProvider(
-      create: (context) =>
-      sl<AppointmentBloc>()..add(GetAppointmentsStarted(dentistId)),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (context) =>
+              sl<AppointmentBloc>()..add(GetAppointmentsStarted(dentistId)),
+        ),
+        BlocProvider(
+          create: (context) =>
+              sl<PatientBloc>()..add(GetPatientsStarted(dentistId)),
+        ),
+      ],
       child: Scaffold(
         appBar: AppBar(
           title: Text(_showCalendar ? 'Calendario' : 'Mi día'),
@@ -106,14 +116,17 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
 
   Widget _buildDayView(BuildContext context, String dentistId) {
     final now = DateTime.now();
-    final todayAppts = _currentAppointments
-        .where((a) =>
-    a.dateTime.year == now.year &&
-        a.dateTime.month == now.month &&
-        a.dateTime.day == now.day &&
-        a.status != AppointmentStatus.cancelled)
-        .toList()
-      ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
+    final todayAppts =
+        _currentAppointments
+            .where(
+              (a) =>
+                  a.dateTime.year == now.year &&
+                  a.dateTime.month == now.month &&
+                  a.dateTime.day == now.day &&
+                  a.status != AppointmentStatus.cancelled,
+            )
+            .toList()
+          ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
 
     // Horario del consultorio: 8am a 8pm en slots de 1 hora
     final slots = List.generate(12, (i) => TimeOfDay(hour: 8 + i, minute: 0));
@@ -143,10 +156,9 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
                     : '${todayAppts.length} cita${todayAppts.length > 1 ? 's' : ''}',
                 style: TextStyle(
                   fontSize: 13,
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onPrimaryContainer
-                      .withOpacity(0.7),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onPrimaryContainer.withOpacity(0.7),
                 ),
               ),
             ],
@@ -161,8 +173,11 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
             itemBuilder: (context, index) {
               final slot = slots[index];
               final slotStart = DateTime(
-                now.year, now.month, now.day,
-                slot.hour, slot.minute,
+                now.year,
+                now.month,
+                now.day,
+                slot.hour,
+                slot.minute,
               );
               final slotEnd = slotStart.add(const Duration(hours: 1));
 
@@ -171,8 +186,7 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
                 final end = a.dateTime.add(
                   Duration(minutes: a.durationMinutes),
                 );
-                return a.dateTime.isBefore(slotEnd) &&
-                    end.isAfter(slotStart);
+                return a.dateTime.isBefore(slotEnd) && end.isAfter(slotStart);
               }).firstOrNull;
 
               return _SlotTile(
@@ -201,8 +215,7 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
         endHour: 20,
       ),
       onTap: (details) {
-        if (details.appointments != null &&
-            details.appointments!.isNotEmpty) {
+        if (details.appointments != null && details.appointments!.isNotEmpty) {
           final appo = details.appointments!.first as AppointmentEntity;
           _showAppointmentDetail(context, appo, dentistId);
         }
@@ -212,103 +225,12 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
 
   // ─── DETAIL / ACCIONES ───────────────────────────────────────────────────
 
-  void _showAppointmentDetail(
-      BuildContext context,
-      AppointmentEntity appo,
-      String dentistId,
-      ) {
-    final appointmentBloc = context.read<AppointmentBloc>();
-
-    showModalBottomSheet(
-      context: context,
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    appo.patientName,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                _StatusChip(appo.status),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(appo.treatment, style: const TextStyle(fontSize: 15)),
-            Text(
-              '${_formatTime(appo.dateTime)} · ${appo.durationMinutes} min',
-              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-            ),
-            if (appo.notes != null && appo.notes!.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text(
-                appo.notes!,
-                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-              ),
-            ],
-            const Divider(height: 28),
-            const Text(
-              'Cambiar estado',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              children: [
-                if (appo.status != AppointmentStatus.confirmed)
-                  _statusButton(
-                    label: 'Confirmar',
-                    color: Colors.orange,
-                    onTap: () {
-                      _updateStatus(appointmentBloc, appo, dentistId,
-                          AppointmentStatus.confirmed);
-                      Navigator.pop(context);
-                    },
-                  ),
-                if (appo.status != AppointmentStatus.completed)
-                  _statusButton(
-                    label: 'Completada',
-                    color: Colors.green,
-                    onTap: () {
-                      _updateStatus(appointmentBloc, appo, dentistId,
-                          AppointmentStatus.completed);
-                      Navigator.pop(context);
-                    },
-                  ),
-                if (appo.status != AppointmentStatus.cancelled)
-                  _statusButton(
-                    label: 'Cancelar',
-                    color: Colors.red,
-                    onTap: () {
-                      _updateStatus(appointmentBloc, appo, dentistId,
-                          AppointmentStatus.cancelled);
-                      Navigator.pop(context);
-                    },
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _updateStatus(
-      AppointmentBloc bloc,
-      AppointmentEntity appo,
-      String dentistId,
-      AppointmentStatus newStatus,
-      ) {
+    AppointmentBloc bloc,
+    AppointmentEntity appo,
+    String dentistId,
+    AppointmentStatus newStatus,
+  ) {
     final updated = AppointmentEntity(
       id: appo.id,
       patientId: appo.patientId,
@@ -339,6 +261,29 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
 
   // ─── DRAWER ──────────────────────────────────────────────────────────────
 
+  void _showAddAppointment(BuildContext context, String dentistId) {
+    final appointmentBloc = context.read<AppointmentBloc>();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (modalContext) => MultiBlocProvider(
+        providers: [
+          BlocProvider.value(value: appointmentBloc),
+          BlocProvider(
+            create: (_) =>
+                sl<PatientBloc>()..add(GetPatientsStarted(dentistId)),
+          ),
+        ],
+        child: AddAppointmentModal(
+          dentistId: dentistId,
+          onSave: (newAppo) {
+            appointmentBloc.add(AddAppointmentRequested(newAppo, dentistId));
+          },
+        ),
+      ),
+    );
+  }
+
   Widget _buildDrawer(BuildContext context) {
     return Drawer(
       child: ListView(
@@ -365,27 +310,168 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
 
   // ─── ADD APPOINTMENT ─────────────────────────────────────────────────────
 
-  void _showAddAppointment(BuildContext context, String dentistId) {
+  void _showAppointmentDetail(
+    BuildContext context,
+    AppointmentEntity appo,
+    String dentistId,
+  ) {
     final appointmentBloc = context.read<AppointmentBloc>();
+
+    // Buscar el paciente en memoria por patientId
+    final patientState = context.read<PatientBloc>().state;
+    PatientEntity? patient;
+    if (patientState is PatientLoaded) {
+      patient = patientState.patients
+          .where((p) => p.id == appo.patientId)
+          .firstOrNull;
+    }
+
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
-      builder: (modalContext) => MultiBlocProvider(
-        providers: [
-          BlocProvider.value(value: appointmentBloc),
-          BlocProvider(
-            create: (_) =>
-            sl<PatientBloc>()..add(GetPatientsStarted(dentistId)),
-          ),
-        ],
-        child: AddAppointmentModal(
-          dentistId: dentistId,
-          onSave: (newAppo) {
-            appointmentBloc.add(AddAppointmentRequested(newAppo, dentistId));
-          },
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Encabezado
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    appo.patientName,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                _StatusChip(appo.status),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(appo.treatment, style: const TextStyle(fontSize: 15)),
+            Text(
+              '${_formatTime(appo.dateTime)} · ${appo.durationMinutes} min',
+              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+            ),
+            if (appo.notes != null && appo.notes!.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                appo.notes!,
+                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+              ),
+            ],
+            const Divider(height: 28),
+
+            // Botón WhatsApp — solo si encontramos el paciente y tiene teléfono
+            if (patient != null && patient.phone.isNotEmpty) ...[
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.message),
+                  label: const Text('Enviar recordatorio por WhatsApp'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF25D366),
+                    // verde WhatsApp
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () => _sendWhatsAppReminder(appo, patient!),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            // Acciones de estado
+            const Text(
+              'Cambiar estado',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              children: [
+                if (appo.status != AppointmentStatus.confirmed)
+                  _statusButton(
+                    label: 'Confirmar',
+                    color: Colors.orange,
+                    onTap: () {
+                      _updateStatus(
+                        appointmentBloc,
+                        appo,
+                        dentistId,
+                        AppointmentStatus.confirmed,
+                      );
+                      Navigator.pop(context);
+                    },
+                  ),
+                if (appo.status != AppointmentStatus.completed)
+                  _statusButton(
+                    label: 'Completada',
+                    color: Colors.green,
+                    onTap: () {
+                      _updateStatus(
+                        appointmentBloc,
+                        appo,
+                        dentistId,
+                        AppointmentStatus.completed,
+                      );
+                      Navigator.pop(context);
+                    },
+                  ),
+                if (appo.status != AppointmentStatus.cancelled)
+                  _statusButton(
+                    label: 'Cancelar',
+                    color: Colors.red,
+                    onTap: () {
+                      _updateStatus(
+                        appointmentBloc,
+                        appo,
+                        dentistId,
+                        AppointmentStatus.cancelled,
+                      );
+                      Navigator.pop(context);
+                    },
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+          ],
         ),
       ),
     );
+  }
+
+  Future<void> _sendWhatsAppReminder(
+    AppointmentEntity appo,
+    PatientEntity patient,
+  ) async {
+    // Limpiar el teléfono — quitar espacios, guiones, paréntesis
+    // y asegurarse que tenga código de país
+    String phone = patient.phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
+    if (!phone.startsWith('+')) {
+      phone = '+52$phone'; // Agregar código de México si no tiene prefijo
+    }
+    // Quitar el + para el formato de wa.me
+    phone = phone.replaceAll('+', '');
+
+    final fecha =
+        '${appo.dateTime.day}/${appo.dateTime.month}/${appo.dateTime.year}';
+    final hora = _formatTime(appo.dateTime);
+
+    final mensaje =
+        'Hola ${appo.patientName} 👋, te recordamos que tienes una cita '
+        'el *$fecha* a las *$hora* para *${appo.treatment}*. '
+        '¿Confirmas tu asistencia? 😊';
+
+    final url = Uri.parse(
+      'https://wa.me/$phone?text=${Uri.encodeComponent(mensaje)}',
+    );
+
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    }
   }
 
   // ─── HELPERS ─────────────────────────────────────────────────────────────
@@ -398,12 +484,29 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
 
   String _formatDate(DateTime dt) {
     const months = [
-      '', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+      '',
+      'enero',
+      'febrero',
+      'marzo',
+      'abril',
+      'mayo',
+      'junio',
+      'julio',
+      'agosto',
+      'septiembre',
+      'octubre',
+      'noviembre',
+      'diciembre',
     ];
     const days = [
-      '', 'lunes', 'martes', 'miércoles', 'jueves',
-      'viernes', 'sábado', 'domingo',
+      '',
+      'lunes',
+      'martes',
+      'miércoles',
+      'jueves',
+      'viernes',
+      'sábado',
+      'domingo',
     ];
     return '${days[dt.weekday]}, ${dt.day} de ${months[dt.month]}';
   }
@@ -416,16 +519,11 @@ class _SlotTile extends StatelessWidget {
   final AppointmentEntity? appointment;
   final VoidCallback? onTap;
 
-  const _SlotTile({
-    required this.slotTime,
-    this.appointment,
-    this.onTap,
-  });
+  const _SlotTile({required this.slotTime, this.appointment, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final timeLabel =
-        '${slotTime.hour.toString().padLeft(2, '0')}:00';
+    final timeLabel = '${slotTime.hour.toString().padLeft(2, '0')}:00';
     final isEmpty = appointment == null;
 
     return InkWell(
@@ -464,32 +562,32 @@ class _SlotTile extends StatelessWidget {
             Expanded(
               child: isEmpty
                   ? Text(
-                'Disponible',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey[400],
-                  fontStyle: FontStyle.italic,
-                ),
-              )
+                      'Disponible',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[400],
+                        fontStyle: FontStyle.italic,
+                      ),
+                    )
                   : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    appointment!.patientName,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          appointment!.patientName,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          appointment!.treatment,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  Text(
-                    appointment!.treatment,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ),
             ),
 
             // Indicador de estado
@@ -502,7 +600,7 @@ class _SlotTile extends StatelessWidget {
 
   Color _statusColor(AppointmentStatus status) {
     return switch (status) {
-      AppointmentStatus.pending   => Colors.blueAccent,
+      AppointmentStatus.pending => Colors.blueAccent,
       AppointmentStatus.confirmed => Colors.orange,
       AppointmentStatus.completed => Colors.green,
       AppointmentStatus.cancelled => Colors.red,
@@ -512,15 +610,16 @@ class _SlotTile extends StatelessWidget {
 
 class _StatusChip extends StatelessWidget {
   final AppointmentStatus status;
+
   const _StatusChip(this.status);
 
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (status) {
-      AppointmentStatus.pending   => ('Pendiente',  Colors.blueAccent),
+      AppointmentStatus.pending => ('Pendiente', Colors.blueAccent),
       AppointmentStatus.confirmed => ('Confirmada', Colors.orange),
       AppointmentStatus.completed => ('Completada', Colors.green),
-      AppointmentStatus.cancelled => ('Cancelada',  Colors.red),
+      AppointmentStatus.cancelled => ('Cancelada', Colors.red),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
