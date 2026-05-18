@@ -1,10 +1,8 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
-
+import '../../../../core/widgets/phone_field.dart';
 import '../../../../core/entities/patient_entity.dart';
 import '../../../../injection_container.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -38,6 +36,7 @@ class _AddPatientsViewState extends State<_AddPatientsView> {
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _obsController = TextEditingController();
+  CountryCode _selectedCountry = CountryCode.mx;
   final _picker = ImagePicker();
 
   File? _imageFile;
@@ -124,31 +123,13 @@ class _AddPatientsViewState extends State<_AddPatientsView> {
     }
   }
 
-  String _normalizePhone(String phone) {
-    final cleaned = phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
-    if (cleaned.startsWith('+52')) return cleaned;
-    if (cleaned.startsWith('52') && cleaned.length == 12) return '+$cleaned';
-    if (cleaned.length == 10) return '+52$cleaned';
-    return cleaned;
-  }
-
-  String? _validatePhone(String? value) {
-    if (value == null || value.isEmpty) return 'El teléfono es requerido';
-    final cleaned = value.replaceAll(RegExp(r'[\s\-\(\)\+]'), '');
-    if (!RegExp(r'^\d{10}$').hasMatch(cleaned) &&
-        !RegExp(r'^52\d{10}$').hasMatch(cleaned)) {
-      return 'Ingresa un número válido de 10 dígitos';
-    }
-    return null;
-  }
-
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
 
     final patient = PatientEntity(
       id: '',
       name: _nameController.text.trim(),
-      phone: _normalizePhone(_phoneController.text.trim()),
+      phone: normalizePhoneWithCode(_phoneController.text.trim(), _selectedCountry),
       email: _emailController.text.trim().isEmpty
           ? null
           : _emailController.text.trim(),
@@ -255,20 +236,11 @@ class _AddPatientsViewState extends State<_AddPatientsView> {
                 ),
                 const SizedBox(height: 14),
 
-                TextFormField(
+                PhoneField(
                   controller: _phoneController,
-                  decoration: const InputDecoration(
-                    labelText: 'Teléfono (WhatsApp) *',
-                    prefixIcon: Icon(Icons.phone_outlined),
-                    helperText: 'Ej: 5512345678 — se usará para recordatorios',
-                  ),
-                  keyboardType: TextInputType.phone,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(
-                      RegExp(r'[\d\s\-\(\)\+]'),
-                    ),
-                  ],
-                  validator: _validatePhone,
+                  enabled: !_isSaving,
+                  onCountryChanged: (country) =>
+                      setState(() => _selectedCountry = country),
                 ),
                 const SizedBox(height: 14),
 

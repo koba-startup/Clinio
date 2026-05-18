@@ -1,11 +1,9 @@
 import 'dart:io';
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
-
+import '../../../../core/widgets/phone_field.dart';
 import '../../../../core/entities/patient_entity.dart';
 import '../bloc/patient_bloc.dart';
 
@@ -47,7 +45,7 @@ class _EditPatientViewState extends State<_EditPatientView> {
   late final TextEditingController _emailController;
   late final TextEditingController _obsController;
   final _picker = ImagePicker();
-
+  late CountryCode _selectedCountry;
   String? _photoUrl;
   bool _photoRemoved = false;
   bool _isSaving = false;
@@ -56,12 +54,21 @@ class _EditPatientViewState extends State<_EditPatientView> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.patient.name);
-    _phoneController = TextEditingController(text: widget.patient.phone);
     _emailController = TextEditingController(text: widget.patient.email ?? '');
     _obsController = TextEditingController(
       text: widget.patient.observations ?? '',
     );
-    _photoUrl = widget.patient.photoUrl;
+
+    // Detectar país del teléfono existente
+    final phone = widget.patient.phone;
+    if (phone.startsWith('+1') ||
+        (phone.startsWith('1') && phone.length == 11)) {
+      _selectedCountry = CountryCode.us;
+    } else {
+      _selectedCountry = CountryCode.mx;
+    }
+    // _phoneController lo inicializa PhoneField via initialPhone
+    _phoneController = TextEditingController();
   }
 
   @override
@@ -153,31 +160,16 @@ class _EditPatientViewState extends State<_EditPatientView> {
     _photoRemoved = true;
   });
 
-  String _normalizePhone(String phone) {
-    final cleaned = phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
-    if (cleaned.startsWith('+52')) return cleaned;
-    if (cleaned.startsWith('52') && cleaned.length == 12) return '+$cleaned';
-    if (cleaned.length == 10) return '+52$cleaned';
-    return cleaned;
-  }
-
-  String? _validatePhone(String? value) {
-    if (value == null || value.isEmpty) return 'El teléfono es requerido';
-    final cleaned = value.replaceAll(RegExp(r'[\s\-\(\)\+]'), '');
-    if (!RegExp(r'^\d{10}$').hasMatch(cleaned) &&
-        !RegExp(r'^52\d{10}$').hasMatch(cleaned)) {
-      return 'Ingresa un número válido de 10 dígitos';
-    }
-    return null;
-  }
-
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
 
     final updated = PatientEntity(
       id: widget.patient.id,
       name: _nameController.text.trim(),
-      phone: _normalizePhone(_phoneController.text.trim()),
+      phone: normalizePhoneWithCode(
+        _phoneController.text.trim(),
+        _selectedCountry,
+      ),
       email: _emailController.text.trim().isEmpty
           ? null
           : _emailController.text.trim(),
@@ -290,20 +282,13 @@ class _EditPatientViewState extends State<_EditPatientView> {
                 ),
                 const SizedBox(height: 14),
 
-                TextFormField(
+                PhoneField(
                   controller: _phoneController,
-                  decoration: const InputDecoration(
-                    labelText: 'Teléfono (WhatsApp) *',
-                    prefixIcon: Icon(Icons.phone_outlined),
-                    helperText: 'Ej: 5512345678',
-                  ),
-                  keyboardType: TextInputType.phone,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(
-                      RegExp(r'[\d\s\-\(\)\+]'),
-                    ),
-                  ],
-                  validator: _validatePhone,
+                  enabled: !_isSaving,
+                  initialPhone: widget.patient.phone,
+                  // ← detecta y limpia el código automáticamente
+                  onCountryChanged: (country) =>
+                      setState(() => _selectedCountry = country),
                 ),
                 const SizedBox(height: 14),
 

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
+import '../../../../core/widgets/phone_field.dart';
 import '../../../../core/entities/patient_entity.dart';
 import '../bloc/patient_bloc.dart';
 
@@ -24,6 +23,7 @@ class _AddPatientModalState extends State<AddPatientModal> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
+  CountryCode _selectedCountry = CountryCode.mx;
   bool _isSaving = false;
 
   @override
@@ -34,38 +34,13 @@ class _AddPatientModalState extends State<AddPatientModal> {
     super.dispose();
   }
 
-  // Normaliza el teléfono a formato internacional +52XXXXXXXXXX
-  // requerido para la WhatsApp API
-  String _normalizePhone(String phone) {
-    // Elimina espacios, guiones y paréntesis
-    String cleaned = phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
-    // Si ya tiene +52, lo dejamos
-    if (cleaned.startsWith('+52')) return cleaned;
-    // Si empieza con 52 (sin +), agregamos el +
-    if (cleaned.startsWith('52') && cleaned.length == 12) return '+$cleaned';
-    // Si es un número de 10 dígitos, agregamos +52
-    if (cleaned.length == 10) return '+52$cleaned';
-    return cleaned;
-  }
-
-  String? _validatePhone(String? value) {
-    if (value == null || value.isEmpty) return 'El teléfono es requerido';
-    final cleaned = value.replaceAll(RegExp(r'[\s\-\(\)\+]'), '');
-    // Acepta 10 dígitos mexicanos o 12 con código de país (52XXXXXXXXXX)
-    if (!RegExp(r'^\d{10}$').hasMatch(cleaned) &&
-        !RegExp(r'^52\d{10}$').hasMatch(cleaned)) {
-      return 'Ingresa un número válido de 10 dígitos';
-    }
-    return null;
-  }
-
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
 
     final patient = PatientEntity(
       id: '',
       name: _nameController.text.trim(),
-      phone: _normalizePhone(_phoneController.text.trim()),
+      phone: normalizePhoneWithCode(_phoneController.text.trim(), _selectedCountry),
       email: _emailController.text.trim().isEmpty
           ? null
           : _emailController.text.trim(),
@@ -142,18 +117,10 @@ class _AddPatientModalState extends State<AddPatientModal> {
               const SizedBox(height: 12),
 
               // Teléfono - crítico para WhatsApp
-              TextFormField(
+              PhoneField(
                 controller: _phoneController,
-                decoration: const InputDecoration(
-                  labelText: 'Teléfono (WhatsApp)',
-                  prefixIcon: Icon(Icons.phone_outlined),
-                  helperText: 'Ej: 5512345678 — se usará para recordatorios',
-                ),
-                keyboardType: TextInputType.phone,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[\d\s\-\(\)\+]')),
-                ],
-                validator: _validatePhone,
+                enabled: !_isSaving,
+                onCountryChanged: (country) => setState(() => _selectedCountry = country),
               ),
               const SizedBox(height: 12),
 
