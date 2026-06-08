@@ -706,6 +706,15 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
                   onPressed: () => _sendWhatsAppReminder(appo, patient!),
                 ),
               ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.phone),
+                  label: Text('Llamar a ${patient.name.split(' ').first}'),
+                  onPressed: () => _callPatient(patient!),
+                ),
+              ),
               const SizedBox(height: 12),
             ],
 
@@ -797,6 +806,25 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
 
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Future<void> _callPatient(PatientEntity patient) async {
+    String phone = patient.phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
+    if (!phone.startsWith('+')) {
+      phone = '+52$phone';
+    }
+
+    final url = Uri.parse('tel:$phone');
+
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo abrir el marcador')),
+        );
+      }
     }
   }
 
